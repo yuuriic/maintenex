@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: maintenex-api
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/maintenex}
+    username: ${DATABASE_USER:maintenex}
+    password: ${DATABASE_PASSWORD:maintenex}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+server:
+  port: ${PORT:8080}
+
+maintenex:
+  cors-origin: ${CORS_ORIGIN:http://localhost:5173}
+  jwt-secret: ${JWT_SECRET:troque-este-segredo-antes-de-publicar}
