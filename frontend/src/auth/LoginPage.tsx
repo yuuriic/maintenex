@@ -72,20 +72,26 @@ export default function LoginPage() {
     <div className="login">
       <aside className="login-hero">
         <div className="login-hero-glow" aria-hidden />
-        <Link to="/" className="login-voltar"><ArrowLeft size={15} />Voltar ao site</Link>
-        <div className="login-brand">
-          <div className="brand-mark lg">M</div>
-          <div><b>Maintenex</b><small>Gestão de manutenção</small></div>
+        <div className="login-hero-topo">
+          <Link to="/" className="login-voltar"><ArrowLeft size={15} />Voltar ao site</Link>
+          <div className="login-brand">
+            <div className="brand-mark lg">M</div>
+            <div><b>Maintenex</b><small>Gestão de manutenção</small></div>
+          </div>
         </div>
-        <h1>Manutenção sob controle,<br />do checklist ao estoque.</h1>
-        <ul className="login-features">
-          {destaques.map(([titulo, texto]) => (
-            <li key={titulo}>
-              <ShieldCheck size={18} />
-              <div><strong>{titulo}</strong><span>{texto}</span></div>
-            </li>
-          ))}
-        </ul>
+
+        <div className="login-hero-meio">
+          <h1>Manutenção sob controle,<br />do checklist ao estoque.</h1>
+          <ul className="login-features">
+            {destaques.map(([titulo, texto]) => (
+              <li key={titulo}>
+                <ShieldCheck size={18} />
+                <div><strong>{titulo}</strong><span>{texto}</span></div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
         <footer>Autenticação segura via Supabase</footer>
       </aside>
 
