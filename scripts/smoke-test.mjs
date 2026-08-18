@@ -4,7 +4,7 @@
  * Cria contas descartáveis via sub-endereçamento (+qa) do EMAIL_BASE.
  * Remova-as pelo painel (Authentication → Users) quando terminar.
  *
- *   EMAIL_BASE=voce@empresa.com.br node scripts/smoke-test.mjs
+ *   EMAIL_BASE=admin.tenex@maintenex.com.br node scripts/smoke-test.mjs
  *
  * Lê frontend/.env. Cria duas empresas de teste com usuários próprios e valida:
  *   1. auto-cadastro cria empresa + owner
@@ -32,7 +32,8 @@ if (!URL_SB || !KEY) { console.error('faltam VITE_SUPABASE_URL / VITE_SUPABASE_A
 /**
  * O Supabase valida o domínio do e-mail (exige registro MX), então as contas de
  * teste usam sub-endereçamento de um endereço real:
- * EMAIL_BASE=voce@empresa.com.br vira voce+qa-a-<carimbo>@empresa.com.br.
+ * EMAIL_BASE=voce@dominio.com.br vira voce+qa-a-<carimbo>@dominio.com.br.
+ * O dominio precisa ter registro MX, senao o Supabase recusa o cadastro.
  */
 const EMAIL_BASE = process.env.EMAIL_BASE
 if (!EMAIL_BASE || !EMAIL_BASE.includes('@')) {

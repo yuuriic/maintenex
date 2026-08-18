@@ -11,7 +11,7 @@
 do $$
 declare
   -- >>> e-mail do administrador da plataforma <<<
-  email_admin constant text := 'giovani.ricetto@grupolelac.com.br';
+  email_admin constant text := 'admin.tenex@maintenex.com.br';
 
   qtd_empresas integer;
   qtd_usuarios integer;
