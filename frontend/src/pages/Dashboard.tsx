@@ -12,7 +12,7 @@ import { Badge, Painel, Skeleton, StatCard, Vazio } from '../components/ui'
 import { data, nf, titulo } from '../lib/format'
 import type { Checklist, Equipamento, Movimentacao, Pendencia } from '../lib/types'
 
-const CORES = ['#4f8cff', '#22c55e', '#f59e0b', '#a855f7', '#ef4444', '#06b6d4']
+const CORES = ['#8b8b96', '#3fb950', '#d29922', '#a371f7', '#f85149', '#39c5cf']
 
 interface Painelzinho {
   equipamentos: Equipamento[]
@@ -159,7 +159,7 @@ export default function Dashboard() {
                 <YAxis {...eixo} tickLine={false} axisLine={false} allowDecimals={false} />
                 <Tooltip contentStyle={tooltipEstilo} cursor={{ fill: 'var(--sup-3)' }} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="preventivas" name="Preventivas" fill={CORES[0]} radius={[6, 6, 0, 0]} />
+                <Bar dataKey="preventivas" name="Preventivas" fill={CORES[1]} radius={[6, 6, 0, 0]} />
                 <Bar dataKey="corretivas" name="Corretivas" fill={CORES[4]} radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>

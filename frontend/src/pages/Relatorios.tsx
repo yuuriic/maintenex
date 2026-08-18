@@ -12,7 +12,7 @@ import { Painel, Skeleton, StatCard, Vazio } from '../components/ui'
 import { baixarCsv, data, nf, titulo } from '../lib/format'
 import type { Checklist, Equipamento, Movimentacao, Pendencia } from '../lib/types'
 
-const CORES = ['#4f8cff', '#22c55e', '#f59e0b', '#a855f7', '#ef4444', '#06b6d4']
+const CORES = ['#8b8b96', '#3fb950', '#d29922', '#a371f7', '#f85149', '#39c5cf']
 const PERIODOS = [
   { chave: '30', rotulo: 'Últimos 30 dias' },
   { chave: '90', rotulo: 'Últimos 90 dias' },
