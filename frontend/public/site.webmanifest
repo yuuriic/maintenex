@@ -1,0 +1,11 @@
+{
+  "name": "Maintenex — Gestão de manutenção",
+  "short_name": "Maintenex",
+  "description": "Checklists preventivos, estoque e pendências de manutenção em um só painel.",
+  "start_url": "/app",
+  "display": "standalone",
+  "background_color": "#0b1020",
+  "theme_color": "#0b1020",
+  "lang": "pt-BR",
+  "icons": []
+}
