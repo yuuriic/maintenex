@@ -1,18 +1,19 @@
 -- =========================================================================
--- Maintenex :: criar a conta de administração da plataforma
 --
--- Cria o usuário direto no banco, com e-mail já confirmado. Serve quando o
--- domínio ainda não tem registro MX (a API de cadastro recusa esses e-mails).
+--   ####  TROQUE A SENHA NA LINHA 14 ANTES DE EXECUTAR  ####
 --
--- ANTES DE RODAR: troque a senha na constante senha_admin abaixo.
--- Idempotente: se a conta já existir, apenas promove a super_admin.
+-- Cria a conta de administração da plataforma direto no banco, com e-mail
+-- já confirmado. Necessário porque maintenex.com.br ainda não tem registro
+-- MX, e a API de cadastro do Supabase recusa e-mails de domínio sem MX.
+--
+-- Idempotente: se a conta já existir, redefine a senha e garante o papel.
 -- =========================================================================
 
 do $$
 declare
-  -- >>> ajuste estes dois valores <<<
+  senha_admin constant text := 'TROQUE-ESTA-SENHA';   -- <<<<<< SUA SENHA AQUI
+
   email_admin constant text := 'admin.tenex@maintenex.com.br';
-  senha_admin constant text := 'TROQUE-ESTA-SENHA';
 
   nome_admin  constant text := 'Administrador Maintenex';
   id_usuario  uuid;
