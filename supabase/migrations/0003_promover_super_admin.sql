@@ -21,12 +21,12 @@ begin
   with alvos as (
     select distinct p.empresa_id
     from profiles p
-    where p.email like '%+qa-%' and p.empresa_id is not null
+    where (p.email like '%+qa-%' or p.email like '%+diag-%') and p.empresa_id is not null
   )
   delete from empresas e using alvos a where e.id = a.empresa_id;
   get diagnostics qtd_empresas = row_count;
 
-  delete from auth.users where email like '%+qa-%';
+  delete from auth.users where email like '%+qa-%' or email like '%+diag-%';
   get diagnostics qtd_usuarios = row_count;
 
   raise notice 'limpeza: % empresa(s) e % usuario(s) de teste removidos', qtd_empresas, qtd_usuarios;
