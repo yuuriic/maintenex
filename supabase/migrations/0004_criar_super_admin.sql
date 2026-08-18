@@ -21,6 +21,7 @@ declare
   senha       text;
   id_usuario  uuid;
   ja_existia  boolean := false;
+  coluna      text;
 begin
   -- senha gerada: 18 caracteres de um alfabeto sem ambiguidade visual
   if length(coalesce(senha_escolhida, '')) >= 8 then
@@ -65,6 +66,21 @@ begin
       'email', lower(email_admin), now(), now(), now()
     );
   end if;
+
+  -- O GoTrue lê as colunas de token como texto: qualquer NULL faz o login
+  -- responder "Database error querying schema". Normaliza para string vazia,
+  -- percorrendo o catálogo para não depender da versão do Supabase.
+  for coluna in
+    select c.column_name
+    from information_schema.columns c
+    where c.table_schema = 'auth' and c.table_name = 'users'
+      and c.data_type in ('character varying', 'text')
+      and c.is_nullable = 'YES'
+      and c.column_name not in ('email', 'phone', 'encrypted_password', 'aud', 'role')
+  loop
+    execute format('update auth.users set %I = %L where id = %L and %I is null',
+                   coluna, '', id_usuario, coluna);
+  end loop;
 
   -- o trigger handle_new_user cria o profile; aqui ele vira super_admin
   insert into profiles (id, nome, email, papel)
