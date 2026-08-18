@@ -1,4 +1,4 @@
-export const SITE_URL = (import.meta.env.VITE_SITE_URL ?? 'https://maintenex.app').replace(/\/$/, '')
+export const SITE_URL = (import.meta.env.VITE_SITE_URL ?? 'https://www.maintenex.com.br').replace(/\/$/, '')
 
 interface Seo {
   titulo: string

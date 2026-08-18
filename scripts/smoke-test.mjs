@@ -50,6 +50,19 @@ let falhou = 0
 function ok(nome) { passou++; console.log(`  ✓ ${nome}`) }
 function erro(nome, detalhe) { falhou++; console.log(`  ✗ ${nome}\n      ${detalhe}`) }
 
+/**
+ * Garante que o erro veio da regra que queremos testar, e não de tabela ausente
+ * ou de qualquer outra falha — senão o teste negativo vira falso positivo.
+ */
+function exigeBloqueio(error, padraoEsperado) {
+  if (error.code === 'PGRST205') {
+    throw new Error('tabela ausente — o resultado não prova nada')
+  }
+  if (!padraoEsperado.test(error.message)) {
+    throw new Error(`bloqueou pelo motivo errado: ${error.code} ${error.message}`)
+  }
+}
+
 async function checa(nome, fn) {
   try {
     const r = await fn()
@@ -90,14 +103,18 @@ for (const tabela of ['empresas', 'profiles', 'convites', 'cidades', 'setores',
                       'equipamentos', 'checklists', 'checklist_itens',
                       'materiais', 'estoque', 'movimentacoes', 'pendencias']) {
   await checa(`tabela ${tabela} existe`, async () => {
-    const { error } = await publico.from(tabela).select('*', { head: true, count: 'exact' }).limit(1)
-    if (error && error.code === 'PGRST205') throw new Error('tabela ausente — aplique 0001_init.sql')
+    const { error } = await publico.from(tabela).select('id').limit(1)
+    if (error?.code === 'PGRST205') throw new Error('tabela ausente — aplique 0001_init.sql')
+    if (error && error.code !== '42501' && !/permission denied|row-level security/i.test(error.message)) {
+      throw new Error(`${error.code}: ${error.message}`)
+    }
     return true
   })
 }
 
 await checa('anon não lê dados (RLS)', async () => {
-  const { data } = await publico.from('empresas').select('id').limit(1)
+  const { data, error } = await publico.from('empresas').select('id').limit(1)
+  if (error?.code === 'PGRST205') throw new Error('tabela ausente — o resultado não prova nada')
   if (data && data.length) throw new Error('anon conseguiu ler empresas')
   return true
 })
@@ -123,6 +140,7 @@ await checa('usuário A virou owner de uma empresa nova', async () => {
 await checa('A não consegue se promover a super_admin', async () => {
   const { error } = await A.sb.from('profiles').update({ papel: 'super_admin' }).eq('id', A.userId)
   if (!error) throw new Error('escalação de privilégio permitida!')
+  exigeBloqueio(error, /próprio papel|super_admin|row-level security|permission denied/i)
   return true
 })
 
@@ -131,6 +149,7 @@ await checa('A não consegue convidar como super_admin', async () => {
     empresa_id: empresaA, email: emailDeTeste('x'), papel: 'super_admin',
   })
   if (!error) throw new Error('convite super_admin permitido!')
+  exigeBloqueio(error, /super_admin|row-level security|permission denied/i)
   return true
 })
 
@@ -225,13 +244,15 @@ console.log('\nIsolamento entre empresas')
 const B = await criarUsuario('b', `Empresa B ${carimbo}`)
 
 await checa('B não enxerga equipamentos de A', async () => {
-  const { data } = await B.sb.from('equipamentos').select('id').eq('id', equipA)
+  const { data, error } = await B.sb.from('equipamentos').select('id').eq('id', equipA)
+  if (error) throw new Error(`${error.code}: ${error.message}`)
   if (data?.length) throw new Error('vazou equipamento entre empresas!')
   return true
 })
 
 await checa('B não enxerga a empresa de A', async () => {
-  const { data } = await B.sb.from('empresas').select('id').eq('id', empresaA)
+  const { data, error } = await B.sb.from('empresas').select('id').eq('id', empresaA)
+  if (error) throw new Error(`${error.code}: ${error.message}`)
   if (data?.length) throw new Error('vazou empresa!')
   return true
 })
@@ -241,11 +262,13 @@ await checa('B não escreve na empresa de A', async () => {
     empresa_id: empresaA, cidade_id: cidadeA, codigo: `INVASOR-${carimbo}`, nome: 'invasor',
   })
   if (!error) throw new Error('escrita cruzada permitida!')
+  exigeBloqueio(error, /row-level security|permission denied/i)
   return true
 })
 
 await checa('B não altera o perfil de A', async () => {
-  const { data } = await B.sb.from('profiles').update({ nome: 'hackeado' }).eq('id', A.userId).select()
+  const { data, error } = await B.sb.from('profiles').update({ nome: 'hackeado' }).eq('id', A.userId).select()
+  if (error) exigeBloqueio(error, /row-level security|permission denied/i)
   if (data?.length) throw new Error('alterou perfil de outra empresa!')
   return true
 })

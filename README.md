@@ -87,7 +87,7 @@ refaça o deploy.
 | --- | --- | --- |
 | `VITE_SUPABASE_URL` | sim | URL do projeto Supabase |
 | `VITE_SUPABASE_ANON_KEY` | sim | chave `anon public` (ou `sb_publishable_…`) |
-| `VITE_SITE_URL` | não | domínio público, usado em canonical/OG. Padrão: `https://maintenex.app` |
+| `VITE_SITE_URL` | não | domínio público, usado em canonical/OG. Padrão: `https://www.maintenex.com.br` |
 
 Nunca publique a `service_role` no frontend.
 
