@@ -2,6 +2,6 @@
 .vscode/
 target/
 node_modules/
+dist/
 .env
 *.log
-dist/
