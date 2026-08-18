@@ -1,0 +1,18 @@
+User-agent: *
+Allow: /
+Disallow: /app
+Disallow: /login
+
+# Crawlers de IA generativa (GEO/AEO) — liberados para indexar o conteúdo público
+User-agent: GPTBot
+Allow: /
+User-agent: OAI-SearchBot
+Allow: /
+User-agent: ClaudeBot
+Allow: /
+User-agent: PerplexityBot
+Allow: /
+User-agent: Google-Extended
+Allow: /
+
+Sitemap: https://maintenex.app/sitemap.xml
