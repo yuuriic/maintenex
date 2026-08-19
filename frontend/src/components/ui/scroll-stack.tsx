@@ -54,12 +54,13 @@ export default function ScrollStack({
       const scrollRange = Math.max(1, scene.offsetHeight - window.innerHeight)
       const sceneProgress = Math.max(0, Math.min(1, (window.scrollY - sceneTop) / scrollRange))
       const enterDistance = Math.max(scroller.clientHeight + 80, 620)
+      const stackGap = window.innerWidth <= 650 ? 16 : itemStackDistance
 
       cardsRef.current.forEach((card, index) => {
         const start = index === 0 ? 0 : index === 1 ? .24 : .59
         const end = index === 0 ? .01 : index === 1 ? .39 : .74
         const progress = index === 0 ? 1 : Math.max(0, Math.min(1, (sceneProgress - start) / (end - start)))
-        const translateY = index * itemStackDistance + (1 - progress) * enterDistance
+        const translateY = index * stackGap + (1 - progress) * enterDistance
         const rotation = index * rotationAmount * progress
         card.style.transform = `translate3d(0, ${translateY}px, 0) rotate(${rotation}deg)`
         card.style.filter = ''
