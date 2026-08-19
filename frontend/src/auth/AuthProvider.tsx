@@ -42,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: sub } = supabase.auth.onAuthStateChange((evento, novaSessao) => {
       if (evento === 'PASSWORD_RECOVERY') setRecuperandoSenha(true)
+      if (evento === 'SIGNED_OUT') setRecuperandoSenha(false)
       setSession(novaSessao)
       setCarregando(false)
     })
@@ -104,6 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async sair() {
       await supabase.auth.signOut()
+      setRecuperandoSenha(false)
       setProfile(null)
     },
 

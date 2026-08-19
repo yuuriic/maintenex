@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { ArrowRight, Eye, EyeOff, Loader2, Lock } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { aplicarSeo } from '../lib/seo'
 
@@ -57,6 +57,11 @@ export default function RedefinirSenhaPage() {
     navigate('/login?senha=alterada', { replace: true })
   }
 
+  async function voltarAoLogin() {
+    await supabase.auth.signOut()
+    navigate('/login', { replace: true })
+  }
+
   return (
     <main className="login-panel pagina-redefinir">
       <div className="login-card">
@@ -96,7 +101,9 @@ export default function RedefinirSenhaPage() {
           </button>
         </form>
 
-        <div className="login-rodape"><Link className="link" to="/login">Voltar para o login</Link></div>
+        <div className="login-rodape">
+          <button type="button" onClick={voltarAoLogin}>Voltar para o login</button>
+        </div>
       </div>
     </main>
   )
