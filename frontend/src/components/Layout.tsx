@@ -73,7 +73,11 @@ export default function Layout() {
 
           <select aria-label="Cidade" value={cidadeId ?? ''} onChange={(e) => setCidadeId(e.target.value || null)}>
             {!cidades.length && <option value="">Sem cidades</option>}
-            {cidades.map((c) => <option key={c.id} value={c.id}>{c.nome} - {c.uf}</option>)}
+            {cidades.map((c) => (
+              <option key={c.id} value={c.id}>
+                {ehSuperAdmin && c.empresas?.nome ? `${c.empresas.nome} · ` : ''}{c.nome} - {c.uf}
+              </option>
+            ))}
           </select>
 
           <select aria-label="Setor" value={setorId ?? ''} onChange={(e) => setSetorId(e.target.value || null)}>

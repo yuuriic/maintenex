@@ -58,7 +58,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const carregar = useCallback(async () => {
     if (!supabaseConfigurado || !profile) return
     const [{ data: c }, { data: s }] = await Promise.all([
-      supabase.from('cidades').select('*').order('nome'),
+      supabase.from('cidades').select('*, empresas(id, nome)').order('nome'),
       supabase.from('setores').select('*').order('nome'),
     ])
     const listaCidades = (c ?? []) as Cidade[]

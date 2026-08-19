@@ -14,7 +14,7 @@ const tomStatus: Record<StatusEquipamento, string> = {
 
 const vazio = {
   codigo: '', nome: '', marca: '', modelo: '', numero_serie: '',
-  localizacao: '', status: 'ativo' as StatusEquipamento, contador: 0,
+  localizacao: '', status: 'ativo' as StatusEquipamento, contador: '' as number | '',
   setor_id: '', ultima_manutencao: '', proxima_manutencao: '',
 }
 
@@ -176,7 +176,7 @@ export default function Equipamentos() {
               <option value="inativo">Inativo</option>
             </select>
           </Campo>
-          <Campo rotulo="Contador"><input type="number" value={form.contador} onChange={(e) => setForm({ ...form, contador: Number(e.target.value) })} /></Campo>
+          <Campo rotulo="Contador"><input type="number" min={0} value={form.contador} onChange={(e) => setForm({ ...form, contador: e.target.value === '' ? '' : Number(e.target.value) })} placeholder="0" /></Campo>
           <Campo rotulo="Última manutenção"><input type="date" value={form.ultima_manutencao} onChange={(e) => setForm({ ...form, ultima_manutencao: e.target.value })} /></Campo>
           <Campo rotulo="Próxima manutenção"><input type="date" value={form.proxima_manutencao} onChange={(e) => setForm({ ...form, proxima_manutencao: e.target.value })} /></Campo>
         </div>

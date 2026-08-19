@@ -18,7 +18,10 @@ export interface Convite {
   criado_por: string | null; aceito_em: string | null; expira_em: string; criado_em: string
 }
 
-export interface Cidade { id: string; empresa_id: string; nome: string; uf: string; ativa: boolean; criado_em: string }
+export interface Cidade {
+  id: string; empresa_id: string; nome: string; uf: string; ativa: boolean; criado_em: string
+  empresas?: Pick<Empresa, 'id' | 'nome'> | null
+}
 export interface Setor { id: string; empresa_id: string; cidade_id: string; nome: string; responsavel: string | null; criado_em: string }
 
 export interface Profile {

@@ -58,7 +58,8 @@ export default function Configuracoes() {
   }, [empresa])
 
   const { dados: equipe, recarregar: recarregarEquipe } = useConsulta<Profile[]>(async () => {
-    const { data: linhas, error } = await supabase.from('profiles').select('*').order('nome')
+    if (!empresaId) return []
+    const { data: linhas, error } = await supabase.from('profiles').select('*').eq('empresa_id', empresaId).order('nome')
     if (error) throw error
     return (linhas ?? []) as Profile[]
   }, [empresaId])
@@ -284,9 +285,9 @@ export default function Configuracoes() {
               onChange={(e) => setNovaCidade({ ...novaCidade, uf: e.target.value.toUpperCase() })} />
             <button className="btn primario" onClick={() => void criarCidade()}><Plus size={16} />Adicionar</button>
           </div>
-          {!cidades.length ? <Vazio texto="Nenhuma cidade cadastrada" compacto /> : (
+          {!cidades.filter((c) => c.empresa_id === empresaId).length ? <Vazio texto="Nenhuma cidade cadastrada" compacto /> : (
             <ul className="lista-simples">
-              {cidades.map((c) => (
+              {cidades.filter((c) => c.empresa_id === empresaId).map((c) => (
                 <li key={c.id}>
                   <div className="celula-principal">
                     <MapPin size={16} />
