@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { motion, MotionConfig, useScroll, useTransform } from 'motion/react'
 import {
   ArrowRight, BarChart3, Boxes, Building2, CheckCircle2, ClipboardCheck,
   Printer, ShieldCheck, TriangleAlert, Users,
@@ -8,6 +9,12 @@ import { aplicarJsonLd, aplicarSeo, SITE_URL } from '../lib/seo'
 import RadialOrbitalTimeline, { type TimelineItem } from '../components/ui/radial-orbital-timeline'
 import TiltedCard from '../components/ui/tilted-card'
 import ScrollRevealSection from '../components/ui/scroll-reveal-section'
+import CountUp from '../components/ui/count-up'
+import CoilArt from '../components/ui/coil-art'
+import ScrollStack, { ScrollStackItem } from '../components/ui/scroll-stack'
+import Aurora from '../components/ui/aurora'
+
+const MotionLink = motion.create(Link)
 
 const recursos = [
   {
@@ -93,7 +100,19 @@ const perguntas = [
   },
 ]
 
+const heroVariantes = {
+  oculto: {},
+  visivel: { transition: { staggerChildren: 0.12, delayChildren: 0.05 } },
+}
+const itemVariante = {
+  oculto: { opacity: 0, y: 22 },
+  visivel: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] as const } },
+}
+
 export default function Landing() {
+  const { scrollY } = useScroll()
+  const glowY = useTransform(scrollY, [0, 700], [0, 160])
+
   useEffect(() => {
     aplicarSeo({
       titulo: 'Maintenex — Software de gestão de manutenção (checklists, estoque e pendências)',
@@ -151,69 +170,102 @@ export default function Landing() {
       </header>
 
       <main id="conteudo">
+        <div className="lp-intro-gradiente">
         <section className="lp-hero">
-          <div className="lp-glow" aria-hidden />
-          <div className="lp-container lp-hero-grid">
-            <div className="lp-hero-texto">
-              <span className="lp-selo"><ShieldCheck size={14} />Gestão de manutenção em português</span>
-              <h1>Manutenção sob controle, do checklist ao estoque.</h1>
-              <p className="lp-lead">
-                O Maintenex reúne checklists preventivos, controle de peças e pendências com SLA
-                em um painel único. Sua equipe registra no campo, o almoxarifado dá baixa e a
-                gestão acompanha por indicadores — sem planilha paralela.
-              </p>
-              <div className="lp-cta">
-                <Link className="btn primario grande" to="/login?modo=cadastrar">
-                  Criar conta da empresa<ArrowRight size={17} />
-                </Link>
-                <Link className="btn grande" to="/login">Já tenho acesso</Link>
-              </div>
-              <ul className="lp-bullets">
-                <li><CheckCircle2 size={16} />Cadastro da empresa em minutos</li>
-                <li><CheckCircle2 size={16} />Dados isolados por empresa</li>
-                <li><CheckCircle2 size={16} />Exportação em CSV</li>
-              </ul>
-            </div>
+          <motion.div className="lp-aurora-hero" style={{ y: glowY }} aria-hidden>
+            <Aurora colorStops={["#71d326", "#a58cf0", "#39758d"]} blend={0.58} amplitude={1.08} speed={0.62} />
+          </motion.div>
+          <div className="lp-container">
+            <MotionConfig reducedMotion="user">
+              <motion.div className="lp-hero-conteudo" variants={heroVariantes} initial="oculto" animate="visivel">
+                <motion.span variants={itemVariante} className="lp-selo">
+                  <ShieldCheck size={14} />Gestão de manutenção em português
+                </motion.span>
+                <motion.h1 variants={itemVariante}>
+                  Manutenção <span className="lp-destaque-texto">sob controle</span>, do checklist ao estoque.
+                </motion.h1>
+                <motion.p variants={itemVariante} className="lp-lead">
+                  O Maintenex reúne checklists preventivos, controle de peças e pendências com SLA
+                  em um painel único. Sua equipe registra no campo, o almoxarifado dá baixa e a
+                  gestão acompanha por indicadores — sem planilha paralela.
+                </motion.p>
+                <motion.div variants={itemVariante} className="lp-cta">
+                  <MotionLink
+                    whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                    className="btn primario grande" to="/login?modo=cadastrar"
+                  >
+                    Criar conta da empresa<ArrowRight size={17} />
+                  </MotionLink>
+                  <MotionLink whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="btn grande" to="/login">
+                    Já tenho acesso
+                  </MotionLink>
+                </motion.div>
+                <motion.ul variants={itemVariante} className="lp-bullets">
+                  <li><CheckCircle2 size={16} />Cadastro da empresa em minutos</li>
+                  <li><CheckCircle2 size={16} />Dados isolados por empresa</li>
+                  <li><CheckCircle2 size={16} />Exportação em CSV</li>
+                </motion.ul>
 
-            <TiltedCard rotateAmplitude={15} scaleOnHover={1.08}>
-            <div className="lp-mock" aria-hidden>
-              <div className="lp-mock-topo"><span /><span /><span /></div>
-              <div className="lp-mock-corpo">
-                <div className="lp-mock-cards">
-                  <div><small>Preventivas</small><b>128</b></div>
-                  <div><small>Razão P/C</small><b>3,2</b></div>
-                  <div><small>Pendências</small><b>7</b></div>
-                  <div><small>SLA médio</small><b>1,8 d</b></div>
-                </div>
-                <div className="lp-mock-chart">
-                  {[38, 62, 45, 78, 56, 88].map((h, i) => (
-                    <span key={i} style={{ height: `${h}%` }} />
-                  ))}
-                </div>
-                <div className="lp-mock-linhas">
-                  {['Limpeza geral · EQP-PR-001', 'Troca de suprimento · EQP-PR-004', 'Revisão mecânica · EQP-SC-002'].map((l) => (
-                    <div key={l}><CheckCircle2 size={13} />{l}</div>
-                  ))}
-                </div>
-              </div>
-            </div>
-            </TiltedCard>
+                <motion.div variants={itemVariante} className="lp-hero-visual">
+                  <TiltedCard rotateAmplitude={11} scaleOnHover={1.03}>
+                    <div className="lp-mock" aria-hidden>
+                      <div className="lp-mock-topo"><span /><span /><span /></div>
+                      <div className="lp-mock-corpo">
+                        <div className="lp-mock-cards">
+                          <div><small>Preventivas</small><b><CountUp to={128} /></b></div>
+                          <div><small>Razão P/C</small><b><CountUp to={3.2} decimals={1} /></b></div>
+                          <div><small>Pendências</small><b><CountUp to={7} /></b></div>
+                          <div><small>SLA médio</small><b><CountUp to={1.8} decimals={1} suffix=" d" /></b></div>
+                        </div>
+                        <div className="lp-mock-chart">
+                          {[38, 62, 45, 78, 56, 88].map((h, i) => (
+                            <span key={i} style={{ height: `${h}%` }} />
+                          ))}
+                        </div>
+                        <div className="lp-mock-linhas">
+                          {['Limpeza geral · EQP-PR-001', 'Troca de suprimento · EQP-PR-004', 'Revisão mecânica · EQP-SC-002'].map((l) => (
+                            <div key={l}><CheckCircle2 size={13} />{l}</div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </TiltedCard>
+                </motion.div>
+              </motion.div>
+            </MotionConfig>
           </div>
         </section>
 
+        <ScrollRevealSection className="lp-stats" staggerSelector=".lp-stats-grid > div">
+          <div className="lp-container lp-stats-grid">
+            <div><b><CountUp to={6} /></b><span>Módulos integrados em um painel</span></div>
+            <div><b><CountUp to={3} /></b><span>Níveis de acesso configuráveis</span></div>
+            <div><b><CountUp to={100} suffix="%" /></b><span>Dados isolados por empresa</span></div>
+          </div>
+        </ScrollRevealSection>
+
         <ScrollRevealSection id="recursos" className="lp-secao">
           <div className="lp-container">
+            <div className="lp-eyebrow-barra"><span>N°01</span><span>Recursos</span><span>N°01</span></div>
             <header className="lp-secao-head lp-secao-head-centralizado">
               <h2>Tudo que a manutenção precisa, em um lugar</h2>
-              <p>Seis módulos que conversam entre si — o checklist consome material, o material baixa do estoque, a falha vira pendência.</p>
+              <p>Seis módulos que conversam entre si — o checklist consome material, o material baixa do estoque, a falha vira pendência. Clique em cada um para explorar.</p>
             </header>
+            <div className="lp-pill-linha">
+              <span className="lp-pill lima">Checklists</span>
+              <span className="lp-pill claro">Estoque</span>
+              <span className="lp-pill lavanda">Pendências</span>
+              <span className="lp-pill escuro">Equipamentos</span>
+              <span className="lp-pill claro">Relatórios</span>
+              <span className="lp-pill lima">Equipe</span>
+            </div>
             <div className="lp-recursos-orbital">
               <RadialOrbitalTimeline timelineData={recursosOrbitais} />
             </div>
             <div className="lp-grid-3 lp-recursos-mobile">
               {recursos.map((r) => (
                 <article key={r.titulo} className="lp-card">
-                  <span className="lp-card-icone"><r.icone size={20} /></span>
+                  <span className="lp-card-icone"><r.icone size={22} strokeWidth={1.5} /></span>
                   <h3>{r.titulo}</h3>
                   <p>{r.texto}</p>
                 </article>
@@ -221,52 +273,62 @@ export default function Landing() {
             </div>
           </div>
         </ScrollRevealSection>
+        </div>
 
-        <section id="como-funciona" className="lp-secao alt">
+        <section id="como-funciona" className="lp-secao alt lp-como-stack">
           <div className="lp-container">
-            <header className="lp-secao-head">
+            <div className="lp-eyebrow-barra"><span>N°02</span><span>Como funciona</span><span>N°02</span></div>
+            <header className="lp-secao-head lp-como-head">
               <h2>Como funciona</h2>
-              <p>Três passos entre criar a conta e ter o primeiro indicador na tela.</p>
+              <p>Três passos entre criar a conta e ter o primeiro indicador na tela. Role para montar sua operação.</p>
             </header>
-            <ol className="lp-passos">
+            <ScrollStack useWindowScroll itemDistance={150} itemStackDistance={26} stackPosition="18%" scaleEndPosition="8%" baseScale={0.9} itemScale={0.035} rotationAmount={0.25}>
               {passos.map((p, i) => (
-                <li key={p.titulo}>
-                  <span className="lp-passo-num">{i + 1}</span>
-                  <div><h3>{p.titulo}</h3><p>{p.texto}</p></div>
-                </li>
+                <ScrollStackItem key={p.titulo} itemClassName={`lp-passo-stack passo-${i + 1}`}>
+                  <div className="lp-passo-stack-topo"><span>Etapa {String(i + 1).padStart(2, '0')}</span><span>{i === 0 ? 'Estrutura' : i === 1 ? 'Inventário' : 'Operação'}</span></div>
+                  <div className="lp-passo-stack-corpo">
+                    <span className="lp-passo-stack-icone">
+                      {i === 0 ? <Building2 size={30} strokeWidth={1.5} /> : i === 1 ? <Boxes size={30} strokeWidth={1.5} /> : <ClipboardCheck size={30} strokeWidth={1.5} />}
+                    </span>
+                    <div><span className="lp-passo-stack-num">{String(i + 1).padStart(2, '0')}</span><h3>{p.titulo}</h3><p>{p.texto}</p></div>
+                  </div>
+                  <div className="lp-passo-stack-rodape"><span>{i === 0 ? 'Convide sua equipe' : i === 1 ? 'Organize por setor' : 'Acompanhe em tempo real'}</span><ArrowRight size={18} /></div>
+                </ScrollStackItem>
               ))}
-            </ol>
+            </ScrollStack>
           </div>
         </section>
 
-        <section id="niveis" className="lp-secao">
+        <ScrollRevealSection id="niveis" className="lp-secao" staggerSelector=".lp-secao-head, .lp-grid-3 .lp-card">
           <div className="lp-container">
+            <div className="lp-eyebrow-barra"><span>N°03</span><span>Acessos</span><span>N°03</span></div>
             <header className="lp-secao-head">
               <h2>Três níveis de acesso</h2>
               <p>Da administração da plataforma até o técnico em campo, cada um enxerga o que precisa.</p>
             </header>
             <div className="lp-grid-3">
-              <article className="lp-card destaque">
-                <span className="lp-card-icone"><Building2 size={20} /></span>
+              <motion.article whileHover={{ y: -6 }} className="lp-card destaque">
+                <span className="lp-card-icone"><Building2 size={26} strokeWidth={1.5} /></span>
                 <h3>Administração da plataforma</h3>
                 <p>Cria e acompanha as empresas clientes, com visão consolidada de todos os espaços.</p>
-              </article>
-              <article className="lp-card destaque">
-                <span className="lp-card-icone"><ShieldCheck size={20} /></span>
+              </motion.article>
+              <motion.article whileHover={{ y: -6 }} className="lp-card destaque">
+                <span className="lp-card-icone"><ShieldCheck size={26} strokeWidth={1.5} /></span>
                 <h3>Responsável pela empresa</h3>
                 <p>E-mail principal do cliente. Convida funcionários, define papéis e configura cidades e setores.</p>
-              </article>
-              <article className="lp-card destaque">
-                <span className="lp-card-icone"><Users size={20} /></span>
+              </motion.article>
+              <motion.article whileHover={{ y: -6 }} className="lp-card destaque">
+                <span className="lp-card-icone"><Users size={26} strokeWidth={1.5} /></span>
                 <h3>Equipe</h3>
                 <p>Gestor, técnico ou leitor — cada papel com o nível de escrita adequado à função.</p>
-              </article>
+              </motion.article>
             </div>
           </div>
-        </section>
+        </ScrollRevealSection>
 
-        <section id="perguntas" className="lp-secao alt">
+        <ScrollRevealSection id="perguntas" className="lp-secao alt" staggerSelector=".lp-secao-head, .lp-faq-lista details">
           <div className="lp-container lp-faq">
+            <div className="lp-eyebrow-barra"><span>N°04</span><span>Dúvidas</span><span>N°04</span></div>
             <header className="lp-secao-head">
               <h2>Perguntas frequentes</h2>
               <p>O essencial sobre funcionamento, acessos e dados.</p>
@@ -280,15 +342,43 @@ export default function Landing() {
               ))}
             </div>
           </div>
-        </section>
+        </ScrollRevealSection>
 
-        <section className="lp-secao lp-final">
-          <div className="lp-container">
-            <h2>Comece pelo que já está parado</h2>
-            <p>Cadastre a empresa, suba os equipamentos críticos e acompanhe o primeiro ciclo de preventivas.</p>
-            <Link className="btn primario grande" to="/login?modo=cadastrar">Criar conta da empresa<ArrowRight size={17} /></Link>
+        <ScrollRevealSection className="lp-secao lp-final" staggerSelector=".lp-final-copy > *, .lp-final-painel, .lp-final-beneficios li">
+          <div className="lp-container lp-final-card">
+            <div className="lp-coil-final" aria-hidden>
+              <CoilArt className="h-full w-full" corA="#cabdf5" corB="#8fd94b" corC="#f2ede1" />
+            </div>
+            <div className="lp-final-copy">
+              <span className="lp-final-kicker">Seu primeiro ciclo começa aqui</span>
+              <h2>Comece pelo que<br />já está parado.</h2>
+              <p>Organize os equipamentos críticos, distribua as primeiras ordens e transforme manutenção acumulada em uma rotina visível.</p>
+              <div className="lp-final-acoes">
+                <MotionLink whileHover={{ y: -2 }} whileTap={{ scale: 0.97 }} className="btn primario grande" to="/login?modo=cadastrar">
+                  Criar conta da empresa<ArrowRight size={17} />
+                </MotionLink>
+                <Link className="lp-final-link" to="/login">Já tenho uma conta</Link>
+              </div>
+            </div>
+            <div className="lp-final-painel" aria-label="Exemplo de operação organizada no Maintenex">
+              <div className="lp-final-painel-topo">
+                <div><span className="lp-final-status" /> Operação de hoje</div><span>Quarta, 19 ago.</span>
+              </div>
+              <div className="lp-final-metrica"><span>Ordens em andamento</span><strong>12</strong><small><b>+4 concluídas</b> nesta semana</small></div>
+              <div className="lp-final-progresso"><span /></div>
+              <div className="lp-final-tarefas">
+                <div><span className="lp-final-tarefa-icone"><ClipboardCheck size={18} /></span><p><b>Inspeção da bomba 04</b><small>Preventiva · Setor norte</small></p><em>Hoje</em></div>
+                <div><span className="lp-final-tarefa-icone alerta"><TriangleAlert size={18} /></span><p><b>Correia do compressor</b><small>Alta prioridade · Oficina</small></p><em>14:30</em></div>
+                <div><span className="lp-final-tarefa-icone ok"><CheckCircle2 size={18} /></span><p><b>Checklist do gerador</b><small>Concluído por Rafael</small></p><em>Feito</em></div>
+              </div>
+            </div>
+            <ul className="lp-final-beneficios" aria-label="Benefícios para começar">
+              <li><CheckCircle2 size={18} /><span><b>Configuração simples</b><small>Comece sem implantação demorada</small></span></li>
+              <li><Users size={18} /><span><b>Equipe no mesmo fluxo</b><small>Papéis e responsabilidades claros</small></span></li>
+              <li><BarChart3 size={18} /><span><b>Resultado visível</b><small>Acompanhe a evolução desde o dia um</small></span></li>
+            </ul>
           </div>
-        </section>
+        </ScrollRevealSection>
       </main>
 
       <footer className="lp-rodape">

@@ -78,21 +78,21 @@ export default function RadialOrbitalTimeline({ timelineData }: RadialOrbitalTim
   }
 
   const getStatusStyles = (status: TimelineItem['status']) => {
-    if (status === 'completed') return 'text-white bg-black border-white'
-    if (status === 'in-progress') return 'text-black bg-white border-black'
-    return 'text-white bg-black/40 border-white/50'
+    if (status === 'completed') return 'text-white bg-[#14210a] border-[#14210a]'
+    if (status === 'in-progress') return 'text-[#14210a] bg-white border-[#14210a]/30'
+    return 'text-[#14210a] bg-[#14210a]/10 border-[#14210a]/20'
   }
 
   return (
     <div ref={containerRef} onClick={handleContainerClick}
       className="relative flex h-[700px] w-full items-center justify-center overflow-hidden bg-transparent">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.07),transparent_48%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(143,217,75,0.14),transparent_48%)]" />
       <div ref={orbitRef} className="relative flex h-full w-full max-w-4xl items-center justify-center" style={{ perspective: '1000px' }}>
-        <div className="absolute z-10 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-zinc-200 via-zinc-500 to-zinc-900 animate-pulse">
-          <div className="absolute h-20 w-20 rounded-full border border-white/20 animate-ping opacity-70" />
-          <div className="h-8 w-8 rounded-full bg-white/80 backdrop-blur-md" />
+        <div className="absolute z-10 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#8fd94b] via-[#5b7c8c] to-[#14210a] animate-pulse">
+          <div className="absolute h-20 w-20 rounded-full border border-[#8fd94b]/50 animate-ping opacity-70" />
+          <div className="h-8 w-8 rounded-full bg-white/90 backdrop-blur-md" />
         </div>
-        <div className="absolute h-[440px] w-[440px] rounded-full border border-white/10" />
+        <div className="absolute h-[440px] w-[440px] rounded-full border border-[#14210a]/12" />
 
         {timelineData.map((item, index) => {
           const position = calculateNodePosition(index)
@@ -106,17 +106,17 @@ export default function RadialOrbitalTimeline({ timelineData }: RadialOrbitalTim
               style={{ transform: `translate(${position.x}px, ${position.y}px)`, zIndex: isExpanded ? 200 : position.zIndex, opacity: isExpanded ? 1 : position.opacity }}
               onClick={(event) => { event.stopPropagation(); toggleItem(item.id) }}>
               <div className={`absolute -inset-1 rounded-full ${pulseEffect[item.id] ? 'animate-pulse' : ''}`}
-                style={{ background: 'radial-gradient(circle, rgba(255,255,255,.2), transparent 70%)', width: item.energy * .5 + 40, height: item.energy * .5 + 40, left: -(item.energy * .25), top: -(item.energy * .25) }} />
-              <div className={`flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all duration-300 ${isExpanded ? 'scale-150 border-white bg-white text-black shadow-lg shadow-white/30' : isRelated ? 'animate-pulse border-white bg-white/50 text-black' : 'border-white/40 bg-black text-white'}`}>
+                style={{ background: 'radial-gradient(circle, rgba(143,217,75,.4), transparent 70%)', width: item.energy * .5 + 40, height: item.energy * .5 + 40, left: -(item.energy * .25), top: -(item.energy * .25) }} />
+              <div className={`flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all duration-300 ${isExpanded ? 'scale-150 border-[#14210a] bg-white text-[#14210a] shadow-lg shadow-black/15' : isRelated ? 'animate-pulse border-[#8fd94b] bg-[#8fd94b]/25 text-[#14210a]' : 'border-white/30 bg-[#14210a] text-white'}`}>
                 <Icon size={16} />
               </div>
-              <div className={`absolute top-12 -translate-x-[calc(50%-20px)] whitespace-nowrap text-xs font-semibold tracking-wide transition-all duration-300 ${isExpanded ? 'scale-125 text-white' : 'text-white/70'}`}>
+              <div className={`absolute top-12 -translate-x-[calc(50%-20px)] whitespace-nowrap text-xs font-semibold tracking-wide transition-all duration-300 ${isExpanded ? 'scale-125 text-[#14210a]' : 'text-[#14210a]/65'}`}>
                 {item.title}
               </div>
 
               {isExpanded && (
-                <Card className="absolute left-1/2 top-20 w-72 -translate-x-1/2 overflow-visible border-white/30 bg-black/95 text-white shadow-xl shadow-black/50 backdrop-blur-lg">
-                  <div className="absolute -top-3 left-1/2 h-3 w-px -translate-x-1/2 bg-white/50" />
+                <Card className="absolute left-1/2 top-20 w-72 -translate-x-1/2 overflow-visible border-white/10 bg-[#14210a]/97 text-white shadow-xl shadow-black/25 backdrop-blur-lg">
+                  <div className="absolute -top-3 left-1/2 h-3 w-px -translate-x-1/2 bg-[#14210a]/40" />
                   <CardHeader className="pb-2">
                     <div className="flex items-center justify-between gap-3">
                       <Badge className={`px-2 text-[10px] ${getStatusStyles(item.status)}`}>

@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0a0a0b" />
 
+    <!-- Evita flash de tema errado: a landing pública ("/") é sempre clara,
+         independente da preferência salva do painel logado. -->
+    <script>
+      (function () {
+        var claro = location.pathname === '/'
+          || (localStorage.getItem('maintenex.tema') || (matchMedia('(prefers-color-scheme: light)').matches ? 'claro' : 'escuro')) === 'claro'
+        document.documentElement.dataset.tema = claro ? 'claro' : 'escuro'
+      })()
+    </script>
+
     <title>Maintenex — Software de gestão de manutenção (checklists, estoque e pendências)</title>
     <meta
       name="description"
@@ -14,6 +24,13 @@
     <meta name="author" content="Maintenex" />
     <link rel="canonical" href="https://www.maintenex.com.br/" />
     <link rel="manifest" href="/site.webmanifest" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;650;700;800&display=swap"
+      rel="stylesheet"
+    />
 
     <meta property="og:site_name" content="Maintenex" />
     <meta property="og:locale" content="pt_BR" />

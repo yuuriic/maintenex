@@ -9,9 +9,12 @@ interface ScrollRevealSectionProps {
   children: ReactNode
   id?: string
   className?: string
+  staggerSelector?: string
 }
 
-export default function ScrollRevealSection({ children, id, className }: ScrollRevealSectionProps) {
+export default function ScrollRevealSection({
+  children, id, className, staggerSelector = '.lp-secao-head, .lp-recursos-orbital',
+}: ScrollRevealSectionProps) {
   const sectionRef = useRef<HTMLElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
 
@@ -38,7 +41,7 @@ export default function ScrollRevealSection({ children, id, className }: ScrollR
         },
       )
 
-      gsap.fromTo(content.querySelectorAll('.lp-secao-head, .lp-recursos-orbital'),
+      gsap.fromTo(content.querySelectorAll(staggerSelector),
         { y: 45, opacity: 0 },
         {
           y: 0,

@@ -5,6 +5,7 @@ import { aplicarSeo } from '../lib/seo'
 import { useAuth } from './AuthProvider'
 import { supabaseConfigurado } from '../lib/supabase'
 import { useToast } from '../components/Toast'
+import Aurora from '../components/ui/aurora'
 
 type Modo = 'entrar' | 'cadastrar' | 'recuperar'
 
@@ -77,26 +78,29 @@ export default function LoginPage() {
 
   return (
     <div className="login">
+      <div className="login-aurora" aria-hidden>
+        <Aurora colorStops={["#71d326", "#a58cf0", "#39758d"]} blend={0.6} amplitude={1} speed={0.55} />
+      </div>
       <aside className="login-hero">
-        <div className="login-hero-glow" aria-hidden />
         <div className="login-hero-topo">
           <Link to="/" className="login-voltar"><ArrowLeft size={15} />Voltar ao site</Link>
+        </div>
+        <div className="login-hero-conteudo">
           <div className="login-brand">
             <div className="brand-mark lg">M</div>
             <div><b>Maintenex</b><small>Gestão de manutenção</small></div>
           </div>
-        </div>
-
-        <div className="login-hero-meio">
-          <h1>Manutenção sob controle,<br />do checklist ao estoque.</h1>
-          <ul className="login-features">
-            {destaques.map(([titulo, texto]) => (
-              <li key={titulo}>
-                <ShieldCheck size={18} />
-                <div><strong>{titulo}</strong><span>{texto}</span></div>
-              </li>
-            ))}
-          </ul>
+          <div className="login-hero-meio">
+            <h1>Manutenção sob controle,<br />do checklist ao estoque.</h1>
+            <ul className="login-features">
+              {destaques.map(([titulo, texto]) => (
+                <li key={titulo}>
+                  <ShieldCheck size={18} />
+                  <div><strong>{titulo}</strong><span>{texto}</span></div>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
 
         <footer>Autenticação segura via Supabase</footer>

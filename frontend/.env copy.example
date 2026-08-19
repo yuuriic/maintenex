@@ -1,0 +1,6 @@
+# Supabase (Settings -> API no painel do projeto)
+VITE_SUPABASE_URL=https://SEU-PROJETO.supabase.co
+VITE_SUPABASE_ANON_KEY=sua-anon-public-key
+
+# URL pública sem barra final, usada nos links de recuperação de senha
+VITE_SITE_URL=https://www.maintenex.com.br
