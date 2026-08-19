@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 :root {
   /* Escala neutra: pretos e cinzas sem viés de cor */
   --fundo: #0a0a0b;
@@ -674,10 +676,10 @@ main > header select { width: auto; min-width: 150px; }
 .lp-nav { display: flex; align-items: center; gap: 22px; padding: 13px 0; }
 .lp-marca { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--txt); }
 .lp-marca .brand-mark { width: 30px; height: 30px; border-radius: 9px; font-size: .9rem; }
-.lp-nav nav { display: flex; gap: 20px; margin-inline: auto; }
+.lp-nav nav { display: flex; flex-shrink: 0; gap: 20px; margin-inline: auto; }
 .lp-nav nav a, .lp-rodape nav a {
   color: var(--txt-suave); text-decoration: none; font-size: .9rem; font-weight: 520;
-  transition: color var(--transicao);
+  white-space: nowrap; transition: color var(--transicao);
 }
 .lp-nav nav a:hover, .lp-rodape nav a:hover { color: var(--txt); }
 .lp-nav-acoes { display: flex; gap: 8px; }
@@ -710,9 +712,10 @@ main > header select { width: auto; min-width: 150px; }
 
 .lp-mock {
   background: var(--sup-1); border: 1px solid var(--borda); border-radius: 18px;
-  box-shadow: var(--sombra); overflow: hidden;
-  transform: perspective(1200px) rotateY(-7deg) rotateX(3deg);
+  box-shadow: var(--sombra); overflow: hidden; width: 100%;
 }
+.tilted-card-figure { position: relative; width: 100%; margin: 0; perspective: 800px; }
+.tilted-card-inner { position: relative; width: 100%; transform-style: preserve-3d; will-change: transform; }
 .lp-mock-topo { display: flex; gap: 6px; padding: 12px 14px; border-bottom: 1px solid var(--borda); background: var(--sup-3); }
 .lp-mock-topo span { width: 10px; height: 10px; border-radius: 50%; background: var(--borda-forte); }
 .lp-mock-corpo { padding: 16px; display: grid; gap: 14px; }
@@ -742,14 +745,22 @@ main > header select { width: auto; min-width: 150px; }
 .lp-mock-linhas svg { color: var(--verde); flex-shrink: 0; }
 
 .lp-secao { padding: 72px 0; }
+.scroll-reveal-section { overflow: clip; }
+.scroll-reveal-content { transform-origin: center top; will-change: transform, opacity, clip-path; }
 .lp-secao.alt { background: var(--sup-1); border-block: 1px solid var(--borda); }
 .lp-secao-head { max-width: 62ch; margin-bottom: 34px; display: grid; gap: 10px; }
+.lp-secao-head-centralizado { margin-inline: auto; text-align: center; justify-items: center; }
+.lp-secao-head-centralizado h2 { font-size: clamp(2rem, 3.8vw, 2.85rem); font-weight: 700; }
 .lp-secao-head h2 { font-size: clamp(1.5rem, 2.6vw, 2rem); letter-spacing: -.02em; }
 .lp-secao-head p { color: var(--txt-suave); line-height: 1.6; }
 
 .lp-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.lp-recursos-mobile { display: none; }
 @media (max-width: 940px) { .lp-grid-3 { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 640px) { .lp-grid-3 { grid-template-columns: 1fr; } }
+@media (max-width: 767px) {
+  .lp-recursos-orbital { display: none; }
+  .lp-grid-3.lp-recursos-mobile { display: grid; grid-template-columns: 1fr; }
+}
 
 .lp-card {
   background: var(--sup-1); border: 1px solid var(--borda); border-radius: var(--raio);

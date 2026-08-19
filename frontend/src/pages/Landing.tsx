@@ -5,6 +5,9 @@ import {
   Printer, ShieldCheck, TriangleAlert, Users,
 } from 'lucide-react'
 import { aplicarJsonLd, aplicarSeo, SITE_URL } from '../lib/seo'
+import RadialOrbitalTimeline, { type TimelineItem } from '../components/ui/radial-orbital-timeline'
+import TiltedCard from '../components/ui/tilted-card'
+import ScrollRevealSection from '../components/ui/scroll-reveal-section'
 
 const recursos = [
   {
@@ -38,6 +41,18 @@ const recursos = [
     texto: 'Responsável da empresa convida a equipe e define quem administra, executa ou apenas consulta.',
   },
 ]
+
+const recursosOrbitais: TimelineItem[] = recursos.map((recurso, index) => ({
+  id: index + 1,
+  title: recurso.titulo,
+  date: `Módulo ${String(index + 1).padStart(2, '0')}`,
+  content: recurso.texto,
+  category: 'Manutenção',
+  icon: recurso.icone,
+  relatedIds: [((index + recursos.length - 1) % recursos.length) + 1, ((index + 1) % recursos.length) + 1],
+  status: index < 3 ? 'completed' : index < 5 ? 'in-progress' : 'pending',
+  energy: 100 - index * 12,
+}))
 
 const passos = [
   { titulo: 'Cadastre a empresa', texto: 'O primeiro usuário vira o responsável e já pode convidar a equipe por e-mail.' },
@@ -160,6 +175,7 @@ export default function Landing() {
               </ul>
             </div>
 
+            <TiltedCard rotateAmplitude={15} scaleOnHover={1.08}>
             <div className="lp-mock" aria-hidden>
               <div className="lp-mock-topo"><span /><span /><span /></div>
               <div className="lp-mock-corpo">
@@ -181,16 +197,20 @@ export default function Landing() {
                 </div>
               </div>
             </div>
+            </TiltedCard>
           </div>
         </section>
 
-        <section id="recursos" className="lp-secao">
+        <ScrollRevealSection id="recursos" className="lp-secao">
           <div className="lp-container">
-            <header className="lp-secao-head">
+            <header className="lp-secao-head lp-secao-head-centralizado">
               <h2>Tudo que a manutenção precisa, em um lugar</h2>
               <p>Seis módulos que conversam entre si — o checklist consome material, o material baixa do estoque, a falha vira pendência.</p>
             </header>
-            <div className="lp-grid-3">
+            <div className="lp-recursos-orbital">
+              <RadialOrbitalTimeline timelineData={recursosOrbitais} />
+            </div>
+            <div className="lp-grid-3 lp-recursos-mobile">
               {recursos.map((r) => (
                 <article key={r.titulo} className="lp-card">
                   <span className="lp-card-icone"><r.icone size={20} /></span>
@@ -200,7 +220,7 @@ export default function Landing() {
               ))}
             </div>
           </div>
-        </section>
+        </ScrollRevealSection>
 
         <section id="como-funciona" className="lp-secao alt">
           <div className="lp-container">
