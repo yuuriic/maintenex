@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import Landing from './pages/Landing'
 import LoginPage from './auth/LoginPage'
+import RedefinirSenhaPage from './auth/RedefinirSenhaPage'
 import RotaProtegida from './auth/RotaProtegida'
 
 /**
@@ -45,6 +46,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/redefinir-senha" element={<RedefinirSenhaPage />} />
 
         <Route path="/app" element={<RotaProtegida><Layout /></RotaProtegida>}>
           <Route index element={<Dashboard />} />

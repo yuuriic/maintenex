@@ -91,8 +91,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
 
     async recuperarSenha(email) {
+      const siteUrl = (import.meta.env.VITE_SITE_URL ?? window.location.origin).replace(/\/$/, '')
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/login`,
+        redirectTo: `${siteUrl}/redefinir-senha`,
       })
       if (error) throw new Error(traduzErro(error.message))
     },

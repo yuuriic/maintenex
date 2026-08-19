@@ -143,6 +143,24 @@ select { cursor: pointer; }
 .campo-input input:focus { box-shadow: none; }
 .campo-input .icone-btn { flex-shrink: 0; }
 
+/* Mantém o autofill com a mesma superfície do campo em Chromium e Safari. */
+.campo-input input:-webkit-autofill,
+.campo-input input:-webkit-autofill:hover,
+.campo-input input:-webkit-autofill:focus,
+.campo-input input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--txt);
+  caret-color: var(--txt);
+  -webkit-box-shadow: 0 0 0 1000px var(--sup-1) inset;
+  box-shadow: 0 0 0 1000px var(--sup-1) inset;
+}
+
+/* Firefox e navegadores com suporte ao seletor padrão. */
+.campo-input input:autofill {
+  color: var(--txt);
+  caret-color: var(--txt);
+  box-shadow: 0 0 0 1000px var(--sup-1) inset;
+}
+
 .check-inline { display: flex; align-items: center; gap: 8px; font-size: .88rem; color: var(--txt-suave); white-space: nowrap; }
 .check-inline input, .itens input[type='checkbox'] { width: 16px; height: 16px; accent-color: var(--primaria); cursor: pointer; }
 
@@ -601,6 +619,7 @@ main > header select { width: auto; min-width: 150px; }
 .login-hero footer { color: var(--txt-fraco); font-size: .78rem; }
 
 .login-panel { display: grid; place-items: center; padding: 32px; background: var(--fundo); overflow-y: auto; }
+.pagina-redefinir { min-height: 100%; }
 .login-card { width: 100%; max-width: 400px; display: grid; gap: 15px; }
 .login-tabs {
   display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px;
