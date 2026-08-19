@@ -8,6 +8,7 @@ interface AuthContextValue {
   user: User | null
   profile: Profile | null
   carregando: boolean
+  recuperandoSenha: boolean
   entrar: (email: string, senha: string) => Promise<void>
   cadastrar: (dados: DadosCadastro) => Promise<{ precisaConfirmar: boolean }>
   recuperarSenha: (email: string) => Promise<void>
@@ -29,6 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [carregando, setCarregando] = useState(true)
+  const [recuperandoSenha, setRecuperandoSenha] = useState(false)
 
   useEffect(() => {
     if (!supabaseConfigurado) { setCarregando(false); return }
@@ -38,7 +40,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setCarregando(false)
     })
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_evento, novaSessao) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((evento, novaSessao) => {
+      if (evento === 'PASSWORD_RECOVERY') setRecuperandoSenha(true)
       setSession(novaSessao)
       setCarregando(false)
     })
@@ -74,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user: session?.user ?? null,
     profile,
     carregando,
+    recuperandoSenha,
 
     async entrar(email, senha) {
       const { error } = await supabase.auth.signInWithPassword({ email, password: senha })
@@ -110,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) throw new Error(error.message)
       setProfile(data as Profile)
     },
-  }), [session, profile, carregando])
+  }), [session, profile, carregando, recuperandoSenha])
 
   return <AuthContext.Provider value={valor}>{children}</AuthContext.Provider>
 }

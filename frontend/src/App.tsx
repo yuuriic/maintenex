@@ -1,70 +1,66 @@
-import { Suspense, lazy } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
-import { Loader2 } from 'lucide-react'
-import Landing from './pages/Landing'
-import LoginPage from './auth/LoginPage'
-import RedefinirSenhaPage from './auth/RedefinirSenhaPage'
-import RotaProtegida from './auth/RotaProtegida'
+import {
+  BarChart3, Boxes, ClipboardCheck, LayoutDashboard, Map, PackageOpen,
+  Printer, Settings, TriangleAlert,
+} from 'lucide-react'
+import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
 
-/**
- * Landing e login carregam direto — são a porta de entrada e precisam ser leves.
- * O painel (e o recharts, que é pesado) só desce quando o usuário entra.
- */
-const Layout = lazy(() => import('./components/Layout'))
-const Dashboard = lazy(() => import('./pages/Dashboard'))
-const Checklist = lazy(() => import('./pages/Checklist'))
-const Equipamentos = lazy(() => import('./pages/Equipamentos'))
-const Estoque = lazy(() => import('./pages/Estoque'))
-const Pendencias = lazy(() => import('./pages/Pendencias'))
-const Relatorios = lazy(() => import('./pages/Relatorios'))
-const Configuracoes = lazy(() => import('./pages/Configuracoes'))
-const Empresas = lazy(() => import('./pages/Empresas'))
+const navigation = [
+  ['Dashboard', '/', LayoutDashboard],
+  ['Mapa', '/mapa', Map],
+  ['Checklist', '/checklist', ClipboardCheck],
+  ['Impressoras', '/impressoras', Printer],
+  ['Estoque Geral', '/estoque', Boxes],
+  ['Meu Almoxarifado', '/almoxarifado', PackageOpen],
+  ['Pendências', '/pendencias', TriangleAlert],
+  ['Relatórios', '/relatorios', BarChart3],
+  ['Configurações', '/configuracoes', Settings],
+] as const
 
-/**
- * O painel antigo vivia na raiz e tinha Mapa e Meu Almoxarifado.
- * Mantemos os caminhos funcionando para não quebrar links já compartilhados.
- */
-const rotasLegadas: Record<string, string> = {
-  '/dashboard': '/app',
-  '/mapa': '/app',
-  '/almoxarifado': '/app/estoque',
-  '/impressoras': '/app/equipamentos',
-  '/checklist': '/app/checklist',
-  '/estoque': '/app/estoque',
-  '/pendencias': '/app/pendencias',
-  '/relatorios': '/app/relatorios',
-  '/configuracoes': '/app/configuracoes',
+const cards = [
+  ['Preventivas realizadas', '0', '0 no mês anterior'],
+  ['Razão P/C', '0', '0 corretivas'],
+  ['Pendências abertas', '0', 'SLA médio: 0 dias'],
+  ['Baixas no período', '0', 'Consumo registrado'],
+]
+
+function Placeholder({ title }: { title: string; }) {
+  return <section><h1>{title}</h1><div className="empty">Funcionalidade em desenvolvimento — disponível em breve.</div></section>
 }
 
-function Carregando() {
-  return <div className="tela-carregando"><Loader2 size={26} className="girando" /><span>Carregando…</span></div>
+function Dashboard() {
+  return (
+    <section>
+      <div className="title-row"><div><h1>Dashboard</h1><p>Paranaguá - PR • período atual</p></div></div>
+      <div className="cards">{cards.map(([label, value, detail]) => (
+        <article className="card" key={label}><span>{label}</span><strong>{value}</strong><small>{detail}</small></article>
+      ))}</div>
+      <div className="dashboard-grid">
+        <article className="panel"><h2>Preventivas × Corretivas</h2><div className="chart-placeholder">Dados do período</div></article>
+        <article className="panel"><h2>Evolução de checklists</h2><div className="chart-placeholder">Dados do período</div></article>
+        <article className="panel"><h2>Distribuição por setor</h2><div className="empty compact">Sem dados para exibir</div></article>
+        <article className="panel"><h2>Top 5 materiais</h2><div className="empty compact">Nenhum material utilizado</div></article>
+      </div>
+    </section>
+  )
 }
 
 export default function App() {
   return (
-    <Suspense fallback={<Carregando />}>
-      <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/redefinir-senha" element={<RedefinirSenhaPage />} />
-
-        <Route path="/app" element={<RotaProtegida><Layout /></RotaProtegida>}>
-          <Route index element={<Dashboard />} />
-          <Route path="checklist" element={<Checklist />} />
-          <Route path="equipamentos" element={<Equipamentos />} />
-          <Route path="estoque" element={<Estoque />} />
-          <Route path="pendencias" element={<Pendencias />} />
-          <Route path="relatorios" element={<Relatorios />} />
-          <Route path="configuracoes" element={<Configuracoes />} />
-          <Route path="empresas" element={<Empresas />} />
-        </Route>
-
-        {Object.entries(rotasLegadas).map(([antiga, nova]) => (
-          <Route key={antiga} path={antiga} element={<Navigate to={nova} replace />} />
-        ))}
-
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Suspense>
+    <div className="shell">
+      <aside>
+        <div className="brand"><div className="brand-mark">M</div><div><b>Maintenex</b><small>Gestão de manutenção</small></div></div>
+        <nav>{navigation.map(([label, path, Icon]) => (
+          <NavLink key={path} to={path} end={path === '/'}><Icon size={19}/><span>{label}</span></NavLink>
+        ))}</nav>
+      </aside>
+      <main>
+        <header><select aria-label="Cidade"><option>Paranaguá - PR</option></select><select aria-label="Setor"><option>Todos os setores</option></select><div className="profile">YC</div></header>
+        <div className="content"><Routes>
+          <Route path="/" element={<Dashboard/>}/>
+          {navigation.slice(1).map(([label, path]) => <Route key={path} path={path} element={<Placeholder title={label}/>}/>)}
+          <Route path="*" element={<Navigate to="/" replace/>}/>
+        </Routes></div>
+      </main>
+    </div>
   )
 }

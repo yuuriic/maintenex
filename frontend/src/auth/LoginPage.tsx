@@ -15,7 +15,7 @@ const destaques = [
 ]
 
 export default function LoginPage() {
-  const { session, entrar, cadastrar, recuperarSenha } = useAuth()
+  const { session, recuperandoSenha, entrar, cadastrar, recuperarSenha } = useAuth()
   const toast = useToast()
   const [params] = useSearchParams()
   const [modo, setModo] = useState<Modo>(params.get('modo') === 'cadastrar' ? 'cadastrar' : 'entrar')
@@ -36,6 +36,13 @@ export default function LoginPage() {
     })
   }, [])
 
+  // O link do Supabase cria uma sessão temporária. Ela serve apenas para trocar
+  // a senha e não deve ser tratada como um login comum.
+  const retornoDeRecuperacao = recuperandoSenha
+    || new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery'
+  if (retornoDeRecuperacao) {
+    return <Navigate to={{ pathname: '/redefinir-senha', hash: window.location.hash }} replace />
+  }
   if (session) return <Navigate to="/app" replace />
 
   async function enviar(evento: FormEvent) {
