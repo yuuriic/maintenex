@@ -18,14 +18,16 @@ export default function Estoque() {
   const [movModal, setMovModal] = useState(false)
   const [matModal, setMatModal] = useState(false)
   const [salvando, setSalvando] = useState(false)
-  const [mov, setMov] = useState({ material_id: '', tipo: 'entrada' as TipoMovimentacao, quantidade: 1, motivo: '' })
-  const [mat, setMat] = useState({ codigo: '', nome: '', categoria: '', unidade: 'un', estoque_minimo: 0 })
+  const [mov, setMov] = useState({ material_id: '', tipo: 'entrada' as TipoMovimentacao, quantidade: '', motivo: '' })
+  const [mat, setMat] = useState({ codigo: '', nome: '', categoria: '', unidade: 'un', estoque_minimo: '' })
 
   const { dados: materiais, recarregar: recarregarMateriais } = useConsulta<Material[]>(async () => {
-    const { data, error } = await supabase.from('materiais').select('*').order('nome')
+    let query = supabase.from('materiais').select('*').order('nome')
+    if (empresaId) query = query.eq('empresa_id', empresaId)
+    const { data, error } = await query
     if (error) throw error
     return (data ?? []) as Material[]
-  }, [])
+  }, [empresaId])
 
   const { dados: saldos, carregando, recarregar } = useConsulta<EstoqueTipo[]>(async () => {
     let q = supabase.from('estoque').select('*, materiais(*)')
@@ -69,7 +71,7 @@ export default function Estoque() {
 
   async function registrarMovimentacao() {
     if (!cidadeId) { toast.erro('Selecione uma cidade no topo.'); return }
-    if (!mov.material_id || mov.quantidade <= 0) { toast.erro('Informe material e quantidade.'); return }
+    if (!mov.material_id || Number(mov.quantidade) <= 0) { toast.erro('Informe material e quantidade.'); return }
     setSalvando(true)
     const { error } = await supabase.from('movimentacoes').insert({
       empresa_id: empresaId,
@@ -84,7 +86,7 @@ export default function Estoque() {
     if (error) { toast.erro(error.message); return }
     toast.sucesso('Movimentação registrada — saldo atualizado.')
     setMovModal(false)
-    setMov({ material_id: '', tipo: 'entrada', quantidade: 1, motivo: '' })
+    setMov({ material_id: '', tipo: 'entrada', quantidade: '', motivo: '' })
     void recarregar(); void recarregarMov()
   }
 
@@ -101,7 +103,7 @@ export default function Estoque() {
     if (error) { toast.erro(error.message); return }
     toast.sucesso('Material cadastrado.')
     setMatModal(false)
-    setMat({ codigo: '', nome: '', categoria: '', unidade: 'un', estoque_minimo: 0 })
+    setMat({ codigo: '', nome: '', categoria: '', unidade: 'un', estoque_minimo: '' })
     void recarregarMateriais()
   }
 
@@ -213,7 +215,7 @@ export default function Estoque() {
               <option value="ajuste">Ajuste (define o saldo)</option>
             </select>
           </Campo>
-          <Campo rotulo="Quantidade"><input type="number" min={1} value={mov.quantidade} onChange={(e) => setMov({ ...mov, quantidade: Number(e.target.value) })} /></Campo>
+          <Campo rotulo="Quantidade"><input type="number" min={1} value={mov.quantidade} onChange={(e) => setMov({ ...mov, quantidade: e.target.value })} placeholder="0" /></Campo>
           <Campo rotulo="Motivo"><input value={mov.motivo} onChange={(e) => setMov({ ...mov, motivo: e.target.value })} placeholder="Consumo em preventiva" /></Campo>
         </div>
         <div className="modal-acoes">
@@ -228,7 +230,7 @@ export default function Estoque() {
           <Campo rotulo="Nome"><input value={mat.nome} onChange={(e) => setMat({ ...mat, nome: e.target.value })} /></Campo>
           <Campo rotulo="Categoria"><input value={mat.categoria} onChange={(e) => setMat({ ...mat, categoria: e.target.value })} /></Campo>
           <Campo rotulo="Unidade"><input value={mat.unidade} onChange={(e) => setMat({ ...mat, unidade: e.target.value })} /></Campo>
-          <Campo rotulo="Estoque mínimo"><input type="number" min={0} value={mat.estoque_minimo} onChange={(e) => setMat({ ...mat, estoque_minimo: Number(e.target.value) })} /></Campo>
+          <Campo rotulo="Estoque mínimo"><input type="number" min={0} value={mat.estoque_minimo} onChange={(e) => setMat({ ...mat, estoque_minimo: e.target.value })} placeholder="0" /></Campo>
         </div>
         <div className="modal-acoes">
           <button className="btn" onClick={() => setMatModal(false)}>Cancelar</button>

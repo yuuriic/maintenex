@@ -80,7 +80,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const valor = useMemo<AppState>(() => ({
-    empresaId: profile?.empresa_id ?? null,
+    // Super admins não pertencem a uma empresa. Para operações no painel,
+    // a empresa efetiva é a dona da cidade selecionada no escopo global.
+    empresaId: profile?.empresa_id ?? cidades.find((c) => c.id === cidadeId)?.empresa_id ?? null,
     papel: profile?.papel ?? null,
     ehSuperAdmin: profile?.papel === 'super_admin',
     podeAdministrar: profile?.papel === 'super_admin' || profile?.papel === 'owner',

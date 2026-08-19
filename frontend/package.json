@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "ui:add": "shadcn add"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.3.3",
@@ -30,6 +31,7 @@
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "@vitejs/plugin-react": "latest",
+    "shadcn": "^4.18.0",
     "typescript": "latest",
     "vite": "latest"
   }
