@@ -18,7 +18,7 @@
  */
 import { readFileSync } from 'node:fs'
 import { createClient } from '../frontend/node_modules/@supabase/supabase-js/dist/index.mjs'
-
+ 
 const env = Object.fromEntries(
   readFileSync(new URL('../frontend/.env', import.meta.url), 'utf8')
     .split('\n').filter((l) => l.includes('=') && !l.startsWith('#'))
