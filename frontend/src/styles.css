@@ -446,55 +446,84 @@ main > header select { width: auto; min-width: 150px; }
 /* =========================================================
    Checklist
    ========================================================= */
-.lista-cards { display: grid; gap: 11px; }
-.checklist-card {
-  background: var(--sup-1); border: 1px solid var(--borda); border-radius: var(--raio);
-  overflow: hidden; transition: border-color var(--transicao);
+.checklist-cards-grid { display: grid; grid-template-columns: repeat(3, minmax(270px, 1fr)); gap: 16px; align-items: stretch; }
+.checklist-resumo-card {
+  min-width: 0; background: var(--sup-1); border: 1px solid var(--borda); border-radius: var(--raio);
+  overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 8px 24px -22px rgba(0, 0, 0, .6);
+  transition: border-color var(--transicao), transform var(--transicao), box-shadow var(--transicao);
 }
-.checklist-card:hover { border-color: var(--borda-forte); }
-.checklist-card.aberto { border-color: var(--borda-forte); }
-.checklist-head {
-  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 14px;
-  padding: 14px 16px; background: transparent; border: 0; cursor: pointer; text-align: left;
+.checklist-resumo-card:hover { border-color: var(--borda-forte); transform: translateY(-2px); box-shadow: var(--sombra); }
+.checklist-resumo-card > header { display: flex; align-items: flex-start; gap: 10px; padding: 14px; border-bottom: 1px solid var(--borda); }
+.checklist-card-icone {
+  width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; flex: 0 0 auto;
+  background: color-mix(in srgb, var(--primaria) 13%, transparent); color: var(--primaria);
 }
-.checklist-titulo { display: grid; line-height: 1.35; min-width: 0; }
-.checklist-titulo b { font-size: .95rem; }
-.checklist-titulo small { color: var(--txt-fraco); font-size: .78rem; }
-.checklist-meta { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
-.prazo { display: inline-flex; align-items: center; gap: 5px; color: var(--txt-fraco); font-size: .78rem; }
-.chevron { color: var(--txt-fraco); transition: transform var(--transicao); }
-.checklist-card.aberto .chevron { transform: rotate(180deg); }
-
-.progresso { position: relative; height: 5px; background: var(--sup-3); }
-.progresso > div { height: 100%; background: var(--verde); transition: width 500ms ease; }
-.progresso > span {
-  position: absolute; right: 12px; top: -19px; font-size: .7rem; color: var(--txt-fraco);
+.checklist-card-icone.corretiva { background: color-mix(in srgb, var(--roxo) 14%, transparent); color: var(--roxo); }
+.checklist-card-titulo { min-width: 0; display: grid; gap: 2px; }
+.checklist-card-titulo h3 { font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.checklist-card-titulo p, .checklist-card-titulo small { color: var(--txt-fraco); font-size: .7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.checklist-card-badges { margin-left: auto; display: grid; justify-items: end; gap: 5px; }
+.checklist-card-corpo { padding: 13px; display: grid; gap: 11px; flex: 1; }
+.checklist-card-info { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; color: var(--txt-fraco); font-size: .74rem; }
+.checklist-card-info span { display: inline-flex; align-items: center; gap: 5px; }
+.checklist-card-servico { display: grid; gap: 5px; }
+.checklist-card-servico b { font-size: .82rem; }
+.checklist-card-servico p {
+  min-height: 42px; background: var(--sup-3); border-radius: var(--raio-sm); padding: 9px 10px;
+  color: var(--txt-suave); font-size: .76rem; line-height: 1.45; display: -webkit-box;
+  -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-
-.checklist-corpo { padding: 16px; display: grid; gap: 14px; border-top: 1px solid var(--borda); }
-.itens { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-.itens label {
-  display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--raio-sm);
-  cursor: pointer; font-size: .89rem; transition: background var(--transicao);
+.checklist-resumo-progresso { display: grid; gap: 6px; }
+.checklist-resumo-progresso > div { height: 5px; border-radius: 999px; overflow: hidden; background: var(--sup-3); }
+.checklist-resumo-progresso > div span { display: block; height: 100%; background: var(--verde); transition: width 300ms ease; }
+.checklist-resumo-progresso small { display: inline-flex; align-items: center; gap: 5px; color: var(--txt-fraco); font-size: .7rem; }
+.checklist-resumo-card > footer { padding: 0 13px 13px; }
+.checklist-resumo-card > footer .btn { width: 100%; justify-content: center; }
+.checklist-form-bloco > header {
+  display: flex; align-items: center; gap: 7px; border-bottom: 1px solid var(--borda); padding-bottom: 7px;
 }
-.itens label:hover { background: var(--sup-3); }
-.itens .feito { color: var(--txt-fraco); text-decoration: line-through; }
+.checklist-form-bloco > header h4 { font-size: .82rem; color: var(--txt-suave); }
+.checklist-form-bloco > header .badge { margin-left: auto; }
 .sem-itens { color: var(--txt-fraco); font-size: .85rem; padding: 8px 10px; }
-.observacoes { color: var(--txt-suave); font-size: .86rem; background: var(--sup-3); padding: 10px 12px; border-radius: var(--raio-sm); }
-.checklist-detalhes { display: grid; grid-template-columns: minmax(180px, .45fr) 1fr; gap: 13px; align-items: start; }
-.checklist-detalhes textarea { resize: vertical; min-height: 82px; }
-.checklist-acoes { display: flex; gap: 8px; flex-wrap: wrap; }
-.itens-criacao {
-  border: 1px solid var(--borda); border-radius: var(--raio-sm); padding: 10px;
-  display: grid; gap: 2px;
+.checklist-formulario { display: grid; gap: 18px; }
+.checklist-form-bloco { display: grid; gap: 10px; }
+.checklist-form-bloco > header span { color: var(--txt-fraco); font-size: .72rem; }
+.equipamento-bloco {
+  border: 1px solid color-mix(in srgb, var(--primaria) 45%, var(--borda));
+  background: color-mix(in srgb, var(--primaria) 7%, transparent);
+  border-radius: var(--raio-sm); padding: 13px;
 }
-.itens-criacao legend { padding: 0 6px; color: var(--txt-suave); font-size: .82rem; font-weight: 650; }
-.itens-criacao label {
-  display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: var(--raio-sm);
-  cursor: pointer; font-size: .86rem; transition: background var(--transicao);
+.equipamento-bloco > header { border-color: color-mix(in srgb, var(--primaria) 28%, var(--borda)); }
+.equipamento-bloco > header svg { color: var(--primaria); }
+.equipamento-resumo { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.equipamento-resumo > div { display: grid; gap: 2px; min-width: 0; }
+.equipamento-resumo span { color: var(--txt-fraco); font-size: .7rem; }
+.equipamento-resumo b { overflow: hidden; text-overflow: ellipsis; font-size: .8rem; white-space: nowrap; }
+.checklist-info-grid { display: grid; grid-template-columns: 1.35fr 1fr .75fr; gap: 12px; }
+.checklist-edicao-info { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.checklist-modelo { display: grid; gap: 18px; }
+.opcoes-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 26px; }
+.opcoes-grid label {
+  display: flex; align-items: flex-start; gap: 9px; padding: 6px 4px; border-radius: 6px;
+  cursor: pointer; font-size: .82rem; line-height: 1.4; transition: background var(--transicao);
 }
-.itens-criacao label:hover { background: var(--sup-3); }
-@media (max-width: 620px) { .checklist-detalhes { grid-template-columns: 1fr; } }
+.opcoes-grid label:hover { background: var(--sup-3); }
+.opcoes-grid input[type='checkbox'] {
+  width: 15px; height: 15px; margin-top: 1px; padding: 0; flex: 0 0 auto;
+  accent-color: var(--primaria); cursor: pointer;
+}
+.edicao-acoes { justify-content: space-between; }
+.edicao-acoes > div { display: flex; gap: 9px; }
+@media (max-width: 1180px) { .checklist-cards-grid { grid-template-columns: repeat(2, minmax(270px, 1fr)); } }
+@media (max-width: 760px) {
+  .checklist-cards-grid, .opcoes-grid, .checklist-info-grid, .checklist-edicao-info { grid-template-columns: 1fr; }
+  .equipamento-resumo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 620px) {
+  .equipamento-resumo { grid-template-columns: 1fr; }
+  .edicao-acoes { align-items: stretch; flex-direction: column-reverse; }
+  .edicao-acoes > div, .edicao-acoes .btn { width: 100%; justify-content: center; }
+}
 
 /* =========================================================
    Kanban

@@ -177,8 +177,11 @@ create table if not exists checklist_itens (
   descricao text not null,
   concluido boolean not null default false,
   observacao text,
+  secao text,
   ordem integer not null default 0
 );
+
+alter table checklist_itens add column if not exists secao text;
 
 create table if not exists materiais (
   id uuid primary key default gen_random_uuid(),
@@ -678,26 +681,26 @@ begin
     and not exists (select 1 from checklists cl where cl.equipamento_id = e.id);
 
   -- Itens de checklist -------------------------------------
-  insert into checklist_itens (empresa_id, checklist_id, descricao, concluido, ordem)
-  select emp, cl.id, i.descricao, cl.status = 'concluido', i.ordem
+  insert into checklist_itens (empresa_id, checklist_id, secao, descricao, concluido, ordem)
+  select emp, cl.id, i.secao, i.descricao, cl.status = 'concluido', i.ordem
   from checklists cl
   cross join lateral (
     select * from (values
-      ('Verificar contador de páginas', 1),
-      ('Limpar vidro e ADF', 2),
-      ('Conferir nível de suprimentos', 3),
-      ('Testar impressão de página de teste', 4),
-      ('Registrar ocorrências', 5)
-    ) as preventiva(descricao, ordem)
+      ('Inspeção física', 'Verificar integridade da estrutura ou carcaça', 1),
+      ('Limpeza e conservação', 'Realizar limpeza externa do equipamento', 2),
+      ('Energia e alimentação', 'Verificar fonte, carregador ou bateria', 3),
+      ('Software e conectividade', 'Verificar sistema, firmware e conectividade', 4),
+      ('Testes funcionais', 'Executar teste final de funcionamento', 5)
+    ) as preventiva(secao, descricao, ordem)
     where cl.tipo = 'preventiva'
     union all
     select * from (values
-      ('Identificar e registrar a falha', 1),
-      ('Diagnosticar a causa do problema', 2),
-      ('Executar o reparo ou a substituição necessária', 3),
-      ('Testar o funcionamento após o reparo', 4),
-      ('Registrar peças utilizadas e recomendações', 5)
-    ) as corretiva(descricao, ordem)
+      ('Registro da falha', 'Confirmar e registrar o problema relatado', 1),
+      ('Diagnóstico inicial', 'Identificar a causa provável ou raiz', 2),
+      ('Hardware e componentes', 'Testar os componentes afetados', 3),
+      ('Reparo executado', 'Executar o reparo ou substituição necessária', 4),
+      ('Validação do reparo', 'Confirmar que a falha original foi eliminada', 5)
+    ) as corretiva(secao, descricao, ordem)
     where cl.tipo = 'corretiva'
   ) as i
   where cl.empresa_id = emp

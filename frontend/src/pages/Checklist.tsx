@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { CalendarClock, CheckCircle2, ChevronDown, Plus, Save, Search, Trash2 } from 'lucide-react'
+import { CalendarClock, CheckCircle2, ClipboardCheck, Pencil, Plus, Save, Search, Trash2, UserRound } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../lib/app-state'
 import { useAuth } from '../auth/AuthProvider'
@@ -7,32 +7,139 @@ import { useConsulta } from '../hooks/useConsulta'
 import { useToast } from '../components/Toast'
 import { Badge, Campo, ConfirmarExclusao, Modal, Skeleton, Vazio } from '../components/ui'
 import { data, titulo } from '../lib/format'
-import type { Checklist as ChecklistTipo, Equipamento, StatusChecklist, TipoChecklist } from '../lib/types'
+import type { Checklist as ChecklistTipo, ChecklistItem, Equipamento, StatusChecklist, TipoChecklist } from '../lib/types'
 
 const tomStatus: Record<StatusChecklist, string> = {
   pendente: 'ambar', em_andamento: 'azul', concluido: 'verde', cancelado: 'cinza',
 }
 
-const itensPorTipo: Record<TipoChecklist, readonly string[]> = {
+interface SecaoModelo {
+  titulo: string
+  itens: readonly string[]
+}
+
+const modelosPorTipo: Record<TipoChecklist, readonly SecaoModelo[]> = {
   preventiva: [
-    'Verificar contador de páginas',
-    'Limpar vidro e ADF',
-    'Conferir nível de suprimentos',
-    'Testar impressão de página de teste',
-    'Registrar ocorrências',
+    {
+      titulo: 'Inspeção física',
+      itens: [
+        'Verificar integridade da estrutura ou carcaça',
+        'Verificar tela, display, botões e superfícies',
+        'Verificar cabos, conectores e portas',
+        'Verificar sinais de impacto, umidade ou oxidação',
+      ],
+    },
+    {
+      titulo: 'Limpeza e conservação',
+      itens: [
+        'Realizar limpeza externa do equipamento',
+        'Limpar entradas, saídas e conectores',
+        'Limpar ventilação e dissipação quando aplicável',
+        'Higienizar acessórios e periféricos',
+      ],
+    },
+    {
+      titulo: 'Energia e alimentação',
+      itens: [
+        'Verificar fonte ou carregador',
+        'Verificar cabo e conector de alimentação',
+        'Verificar bateria e autonomia quando aplicável',
+        'Verificar aquecimento ou consumo anormal',
+      ],
+    },
+    {
+      titulo: 'Hardware e componentes',
+      itens: [
+        'Verificar armazenamento e integridade de dados',
+        'Verificar memória e desempenho geral',
+        'Verificar temperatura, ventilação e ruídos',
+        'Verificar componentes internos acessíveis',
+      ],
+    },
+    {
+      titulo: 'Software e conectividade',
+      itens: [
+        'Verificar sistema operacional ou firmware',
+        'Verificar atualizações e drivers',
+        'Testar rede, Wi-Fi, Bluetooth ou comunicação',
+        'Verificar configurações e segurança básica',
+      ],
+    },
+    {
+      titulo: 'Testes funcionais',
+      itens: [
+        'Testar inicialização e desligamento',
+        'Testar tela, áudio, câmera ou impressão quando aplicável',
+        'Testar portas, sensores e periféricos',
+        'Executar teste final de funcionamento',
+      ],
+    },
   ],
   corretiva: [
-    'Identificar e registrar a falha',
-    'Diagnosticar a causa do problema',
-    'Executar o reparo ou a substituição necessária',
-    'Testar o funcionamento após o reparo',
-    'Registrar peças utilizadas e recomendações',
+    {
+      titulo: 'Registro da falha',
+      itens: [
+        'Confirmar o problema relatado pelo solicitante',
+        'Reproduzir a falha quando possível',
+        'Registrar mensagens de erro, alertas ou sintomas',
+        'Avaliar o impacto e a condição de uso do equipamento',
+      ],
+    },
+    {
+      titulo: 'Diagnóstico inicial',
+      itens: [
+        'Inspecionar danos físicos, umidade ou oxidação',
+        'Verificar alimentação, fonte, carregador ou bateria',
+        'Testar cabos, conectores, portas e periféricos',
+        'Identificar a causa provável ou raiz do problema',
+      ],
+    },
+    {
+      titulo: 'Hardware e componentes',
+      itens: [
+        'Testar armazenamento e integridade de dados',
+        'Testar memória, processamento e desempenho',
+        'Verificar temperatura, ventilação e ruídos',
+        'Testar componentes internos ou módulos afetados',
+      ],
+    },
+    {
+      titulo: 'Software e conectividade',
+      itens: [
+        'Verificar sistema operacional ou firmware',
+        'Verificar drivers, atualizações e configurações',
+        'Testar rede, Wi-Fi, Bluetooth ou comunicação',
+        'Verificar falhas de software ou segurança',
+      ],
+    },
+    {
+      titulo: 'Reparo executado',
+      itens: [
+        'Reparar ou substituir o componente necessário',
+        'Restaurar ou reconfigurar o sistema',
+        'Atualizar software, firmware ou drivers necessários',
+        'Realizar limpeza técnica relacionada à falha',
+      ],
+    },
+    {
+      titulo: 'Validação do reparo',
+      itens: [
+        'Confirmar que a falha original foi eliminada',
+        'Executar testes funcionais e de conectividade',
+        'Realizar teste de estabilidade quando aplicável',
+        'Registrar recomendações e condições de entrega',
+      ],
+    },
   ],
 }
 
 interface DetalhesChecklist {
+  titulo: string
+  data_prevista: string
+  status: StatusChecklist
   tecnico_nome: string
   observacoes: string
+  itens_marcados: string[]
 }
 
 function formularioInicial(tecnicoNome = '') {
@@ -43,8 +150,16 @@ function formularioInicial(tecnicoNome = '') {
     data_prevista: new Date().toISOString().slice(0, 10),
     tecnico_nome: tecnicoNome,
     observacoes: '',
-    itens_selecionados: [...itensPorTipo.preventiva],
+    itens_marcados: [] as string[],
   }
+}
+
+function agruparItens(itens: ChecklistItem[]) {
+  return itens.reduce<Map<string, ChecklistItem[]>>((grupos, item) => {
+    const secao = item.secao?.trim() || 'Itens do checklist'
+    grupos.set(secao, [...(grupos.get(secao) ?? []), item])
+    return grupos
+  }, new Map())
 }
 
 export default function Checklist() {
@@ -53,14 +168,16 @@ export default function Checklist() {
   const toast = useToast()
   const [busca, setBusca] = useState('')
   const [filtro, setFiltro] = useState<'todos' | StatusChecklist>('todos')
-  const [aberto, setAberto] = useState<string | null>(null)
   const [criando, setCriando] = useState(false)
+  const [editando, setEditando] = useState<ChecklistTipo | null>(null)
+  const [edicao, setEdicao] = useState<DetalhesChecklist | null>(null)
   const [excluir, setExcluir] = useState<ChecklistTipo | null>(null)
-  const [detalhes, setDetalhes] = useState<Record<string, DetalhesChecklist>>({})
   const [form, setForm] = useState(formularioInicial)
 
   const { dados: equipamentos } = useConsulta<Equipamento[]>(async () => {
-    let q = supabase.from('equipamentos').select('id, codigo, nome, cidade_id').order('codigo')
+    let q = supabase.from('equipamentos')
+      .select('id, codigo, nome, marca, modelo, numero_serie, localizacao, cidade_id')
+      .order('codigo')
     if (cidadeId) q = q.eq('cidade_id', cidadeId)
     const { data: linhas, error } = await q
     if (error) throw error
@@ -70,12 +187,17 @@ export default function Checklist() {
   const { dados, setDados, carregando, recarregar } = useConsulta<ChecklistTipo[]>(async () => {
     const { data: linhas, error } = await supabase
       .from('checklists')
-      .select('*, equipamentos(id, codigo, nome, cidade_id), checklist_itens(*)')
+      .select('*, equipamentos(id, codigo, nome, marca, modelo, numero_serie, localizacao, cidade_id), checklist_itens(*)')
       .order('data_prevista', { ascending: false })
     if (error) throw error
     const todos = (linhas ?? []) as ChecklistTipo[]
     return cidadeId ? todos.filter((c) => c.equipamentos?.cidade_id === cidadeId) : todos
   }, [cidadeId])
+
+  const equipamentoSelecionado = useMemo(
+    () => (equipamentos ?? []).find((equipamento) => equipamento.id === form.equipamento_id) ?? null,
+    [equipamentos, form.equipamento_id],
+  )
 
   const lista = useMemo(() => {
     const termo = busca.trim().toLowerCase()
@@ -101,29 +223,25 @@ export default function Checklist() {
   }
 
   function mudarTipo(tipo: TipoChecklist) {
-    setForm((atual) => ({ ...atual, tipo, itens_selecionados: [...itensPorTipo[tipo]] }))
+    setForm((atual) => ({ ...atual, tipo, itens_marcados: [] }))
   }
 
   function alternarItemCriacao(descricao: string) {
     setForm((atual) => ({
       ...atual,
-      itens_selecionados: atual.itens_selecionados.includes(descricao)
-        ? atual.itens_selecionados.filter((item) => item !== descricao)
-        : [...atual.itens_selecionados, descricao],
+      itens_marcados: atual.itens_marcados.includes(descricao)
+        ? atual.itens_marcados.filter((item) => item !== descricao)
+        : [...atual.itens_marcados, descricao],
     }))
   }
 
   async function criar() {
     if (!form.equipamento_id || !form.titulo.trim()) {
-      toast.erro('Informe equipamento e título.')
+      toast.erro('Informe o equipamento e o título do checklist.')
       return
     }
     if (!form.tecnico_nome.trim()) {
       toast.erro('Informe o nome do técnico responsável.')
-      return
-    }
-    if (!form.itens_selecionados.length) {
-      toast.erro('Selecione ao menos um item para o checklist.')
       return
     }
 
@@ -139,101 +257,102 @@ export default function Checklist() {
     }).select().single()
     if (error) { toast.erro('Não foi possível criar o checklist. Tente novamente.'); return }
 
-    const itensOrdenados = itensPorTipo[form.tipo].filter((item) => form.itens_selecionados.includes(item))
-    const { error: erroItens } = await supabase.from('checklist_itens').insert(
-      itensOrdenados.map((descricao, ordem) => ({
-        empresa_id: empresaId, checklist_id: novo.id, descricao, ordem: ordem + 1,
-      })),
-    )
+    let ordem = 0
+    const itens = modelosPorTipo[form.tipo].flatMap((secao) => secao.itens.map((descricao) => ({
+      empresa_id: empresaId,
+      checklist_id: novo.id,
+      secao: secao.titulo,
+      descricao,
+      concluido: form.itens_marcados.includes(descricao),
+      ordem: ++ordem,
+    })))
+    const { error: erroItens } = await supabase.from('checklist_itens').insert(itens)
     if (erroItens) {
       toast.erro('Checklist criado, mas não foi possível salvar os itens. Tente novamente.')
       void recarregar()
       return
     }
 
-    toast.sucesso('Checklist criado com os itens selecionados.')
+    toast.sucesso('Checklist criado com o modelo selecionado.')
     setCriando(false)
     setForm(formularioInicial(profile?.nome ?? ''))
     void recarregar()
   }
 
-  async function alternarItem(checklistId: string, itemId: string, concluido: boolean) {
-    setDados((atuais) => atuais?.map((checklist) => checklist.id !== checklistId ? checklist : {
-      ...checklist,
-      checklist_itens: checklist.checklist_itens?.map((item) => item.id === itemId ? { ...item, concluido } : item),
-    }) ?? null)
-
-    const { error } = await supabase.from('checklist_itens')
-      .update({ concluido })
-      .eq('id', itemId)
-      .eq('empresa_id', empresaId)
-
-    if (error) {
-      setDados((atuais) => atuais?.map((checklist) => checklist.id !== checklistId ? checklist : {
-        ...checklist,
-        checklist_itens: checklist.checklist_itens?.map((item) => item.id === itemId ? { ...item, concluido: !concluido } : item),
-      }) ?? null)
-      toast.erro('Não foi possível atualizar o item. Tente novamente.')
-    }
-  }
-
-  function detalhesAtuais(c: ChecklistTipo): DetalhesChecklist {
-    return detalhes[c.id] ?? { tecnico_nome: c.tecnico_nome ?? '', observacoes: c.observacoes ?? '' }
-  }
-
-  function alterarDetalhe(c: ChecklistTipo, campo: keyof DetalhesChecklist, valor: string) {
-    setDetalhes((atuais) => ({
-      ...atuais,
-      [c.id]: { ...detalhesAtuais(c), ...atuais[c.id], [campo]: valor },
-    }))
-  }
-
-  async function salvarDetalhes(c: ChecklistTipo, mostrarSucesso = true) {
-    const atuais = detalhesAtuais(c)
-    const tecnicoNome = atuais.tecnico_nome.trim()
-    const descricao = atuais.observacoes.trim()
-    if (!tecnicoNome) {
-      toast.erro('Informe o nome do técnico responsável.')
-      return false
-    }
-
-    const { error } = await supabase.from('checklists').update({
-      tecnico_nome: tecnicoNome,
-      observacoes: descricao || null,
-    }).eq('id', c.id).eq('empresa_id', empresaId)
-    if (error) {
-      toast.erro('Não foi possível salvar os detalhes do checklist.')
-      return false
-    }
-
-    setDados((atuaisDados) => atuaisDados?.map((checklist) => checklist.id === c.id
-      ? { ...checklist, tecnico_nome: tecnicoNome, observacoes: descricao || null }
-      : checklist) ?? null)
-    setDetalhes((atuaisDetalhes) => {
-      const proximos = { ...atuaisDetalhes }
-      delete proximos[c.id]
-      return proximos
+  function abrirEdicao(c: ChecklistTipo) {
+    setEditando(c)
+    setEdicao({
+      titulo: c.titulo,
+      data_prevista: c.data_prevista,
+      status: c.status,
+      tecnico_nome: c.tecnico_nome ?? profile?.nome ?? '',
+      observacoes: c.observacoes ?? '',
+      itens_marcados: (c.checklist_itens ?? []).filter((item) => item.concluido).map((item) => item.id),
     })
-    if (mostrarSucesso) toast.sucesso('Identificação e descrição salvas.')
-    return true
   }
 
-  async function mudarStatus(c: ChecklistTipo, status: StatusChecklist) {
-    if (status === 'concluido') {
-      if (!await salvarDetalhes(c, false)) return
+  function alternarItemEdicao(itemId: string) {
+    setEdicao((atual) => atual ? {
+      ...atual,
+      itens_marcados: atual.itens_marcados.includes(itemId)
+        ? atual.itens_marcados.filter((id) => id !== itemId)
+        : [...atual.itens_marcados, itemId],
+    } : atual)
+  }
+
+  async function salvarEdicao() {
+    if (!editando || !edicao) return
+    if (!edicao.titulo.trim() || !edicao.tecnico_nome.trim()) {
+      toast.erro('Informe o título e o nome do técnico responsável.')
+      return
     }
 
-    const dataConclusao = status === 'concluido' ? new Date().toISOString() : null
-    const { error } = await supabase.from('checklists').update({
-      status,
-      data_conclusao: dataConclusao,
-    }).eq('id', c.id).eq('empresa_id', empresaId)
-    if (error) { toast.erro('Não foi possível alterar o status do checklist.'); return }
+    const marcados = new Set(edicao.itens_marcados)
+    const itensAlterados = (editando.checklist_itens ?? []).filter((item) => item.concluido !== marcados.has(item.id))
+    const resultados = await Promise.all(itensAlterados.map((item) => supabase
+      .from('checklist_itens')
+      .update({ concluido: marcados.has(item.id) })
+      .eq('id', item.id)
+      .eq('checklist_id', editando.id)
+      .eq('empresa_id', empresaId)))
 
-    setDados((atuais) => atuais?.map((checklist) => checklist.id === c.id
-      ? { ...checklist, status, data_conclusao: dataConclusao }
-      : checklist) ?? null)
-    toast.sucesso(`Checklist marcado como ${titulo(status).toLowerCase()}.`)
+    if (resultados.some((resultado) => resultado.error)) {
+      toast.erro('Não foi possível salvar todos os itens do checklist.')
+      void recarregar()
+      return
+    }
+
+    const dataConclusao = edicao.status === 'concluido'
+      ? editando.data_conclusao ?? new Date().toISOString()
+      : null
+    const { error } = await supabase.from('checklists').update({
+      titulo: edicao.titulo.trim(),
+      data_prevista: edicao.data_prevista,
+      status: edicao.status,
+      data_conclusao: dataConclusao,
+      tecnico_nome: edicao.tecnico_nome.trim(),
+      observacoes: edicao.observacoes.trim() || null,
+    }).eq('id', editando.id).eq('empresa_id', empresaId)
+
+    if (error) {
+      toast.erro('Não foi possível salvar as alterações do checklist.')
+      void recarregar()
+      return
+    }
+
+    setDados((atuais) => atuais?.map((checklist) => checklist.id === editando.id ? {
+      ...checklist,
+      titulo: edicao.titulo.trim(),
+      data_prevista: edicao.data_prevista,
+      status: edicao.status,
+      data_conclusao: dataConclusao,
+      tecnico_nome: edicao.tecnico_nome.trim(),
+      observacoes: edicao.observacoes.trim() || null,
+      checklist_itens: checklist.checklist_itens?.map((item) => ({ ...item, concluido: marcados.has(item.id) })),
+    } : checklist) ?? null)
+    setEditando(null)
+    setEdicao(null)
+    toast.sucesso('Checklist atualizado.')
   }
 
   async function confirmarExclusao() {
@@ -246,6 +365,9 @@ export default function Checklist() {
     setExcluir(null)
     toast.sucesso('Checklist excluído.')
   }
+
+  const itensEdicao = [...(editando?.checklist_itens ?? [])].sort((a, b) => a.ordem - b.ordem)
+  const gruposEdicao = agruparItens(itensEdicao)
 
   return (
     <section>
@@ -272,120 +394,207 @@ export default function Checklist() {
       </div>
 
       {carregando ? <Skeleton /> : !lista.length ? <Vazio texto="Nenhum checklist encontrado" /> : (
-        <div className="lista-cards">
+        <div className="checklist-cards-grid">
           {lista.map((c) => {
             const itens = [...(c.checklist_itens ?? [])].sort((a, b) => a.ordem - b.ordem)
             const feitos = itens.filter((i) => i.concluido).length
             const progresso = itens.length ? Math.round((feitos / itens.length) * 100) : 0
-            const expandido = aberto === c.id
-            const detalhesChecklist = detalhesAtuais(c)
+            const identificacao = [c.equipamentos?.codigo, c.equipamentos?.marca, c.equipamentos?.modelo]
+              .filter(Boolean).join(' · ')
 
             return (
-              <article key={c.id} className={`checklist-card ${expandido ? 'aberto' : ''}`}>
-                <button className="checklist-head" onClick={() => setAberto(expandido ? null : c.id)}>
-                  <div className="checklist-titulo">
-                    <b>{c.titulo}</b>
-                    <small>{c.equipamentos?.codigo} · {c.equipamentos?.nome}</small>
+              <article key={c.id} className="checklist-resumo-card">
+                <header>
+                  <div className={`checklist-card-icone ${c.tipo}`}><ClipboardCheck size={17} /></div>
+                  <div className="checklist-card-titulo">
+                    <h3>{c.equipamentos?.nome ?? 'Equipamento'}</h3>
+                    <p>{identificacao || 'Sem identificação cadastrada'}</p>
+                    {c.equipamentos?.numero_serie && <small>Série: {c.equipamentos.numero_serie}</small>}
                   </div>
-                  <div className="checklist-meta">
+                  <div className="checklist-card-badges">
                     <Badge tom={c.tipo === 'preventiva' ? 'azul' : 'roxo'}>{titulo(c.tipo)}</Badge>
                     <Badge tom={tomStatus[c.status]}>{titulo(c.status)}</Badge>
-                    <span className="prazo"><CalendarClock size={14} />{data(c.data_prevista)}</span>
-                    <ChevronDown size={16} className="chevron" />
                   </div>
-                </button>
+                </header>
 
-                <div className="progresso"><div style={{ width: `${progresso}%` }} /><span>{feitos}/{itens.length}</span></div>
-
-                {expandido && (
-                  <div className="checklist-corpo">
-                    <ul className="itens">
-                      {itens.map((item) => (
-                        <li key={item.id}>
-                          <label>
-                            <input type="checkbox" checked={item.concluido}
-                              onChange={(e) => void alternarItem(c.id, item.id, e.target.checked)} />
-                            <span className={item.concluido ? 'feito' : ''}>{item.descricao}</span>
-                          </label>
-                        </li>
-                      ))}
-                      {!itens.length && <li className="sem-itens">Sem itens cadastrados.</li>}
-                    </ul>
-
-                    <div className="checklist-detalhes">
-                      <Campo rotulo="Técnico responsável">
-                        <input value={detalhesChecklist.tecnico_nome} maxLength={120}
-                          onChange={(e) => alterarDetalhe(c, 'tecnico_nome', e.target.value)} placeholder="Nome do técnico" />
-                      </Campo>
-                      <Campo rotulo="Descrição do serviço realizado">
-                        <textarea rows={3} value={detalhesChecklist.observacoes} maxLength={2000}
-                          onChange={(e) => alterarDetalhe(c, 'observacoes', e.target.value)}
-                          placeholder="Descreva com detalhes o diagnóstico, o serviço executado e as peças utilizadas" />
-                      </Campo>
-                    </div>
-
-                    <div className="checklist-acoes">
-                      <button className="btn" onClick={() => void salvarDetalhes(c)}><Save size={15} />Salvar detalhes</button>
-                      {c.status !== 'em_andamento' && c.status !== 'concluido' && (
-                        <button className="btn" onClick={() => void mudarStatus(c, 'em_andamento')}>Iniciar</button>
-                      )}
-                      {c.status !== 'concluido' && (
-                        <button className="btn primario" onClick={() => void mudarStatus(c, 'concluido')}>
-                          <CheckCircle2 size={15} />Concluir
-                        </button>
-                      )}
-                      {c.status === 'concluido' && (
-                        <button className="btn" onClick={() => void mudarStatus(c, 'pendente')}>Reabrir</button>
-                      )}
-                      <button className="btn perigo" onClick={() => setExcluir(c)}><Trash2 size={15} />Excluir</button>
-                    </div>
+                <div className="checklist-card-corpo">
+                  <div className="checklist-card-info">
+                    <span><CalendarClock size={14} />{data(c.data_prevista)}</span>
+                    <span><UserRound size={14} />{c.tecnico_nome || 'Técnico não informado'}</span>
                   </div>
-                )}
+                  <div className="checklist-card-servico">
+                    <b>{c.titulo}</b>
+                    <p>{c.observacoes || 'Nenhuma descrição do serviço informada.'}</p>
+                  </div>
+                  <div className="checklist-resumo-progresso">
+                    <div><span style={{ width: `${progresso}%` }} /></div>
+                    <small><CheckCircle2 size={13} />{feitos} de {itens.length} itens realizados</small>
+                  </div>
+                </div>
+
+                <footer>
+                  <button className="btn" onClick={() => abrirEdicao(c)}><Pencil size={15} />Editar checklist</button>
+                </footer>
               </article>
             )
           })}
         </div>
       )}
 
-      <Modal aberto={criando} titulo="Novo checklist" onFechar={() => setCriando(false)} largura={680}>
-        <div className="form-grid">
-          <Campo rotulo="Equipamento">
-            <select value={form.equipamento_id} onChange={(e) => setForm({ ...form, equipamento_id: e.target.value })}>
-              <option value="">Selecione…</option>
-              {(equipamentos ?? []).map((e) => <option key={e.id} value={e.id}>{e.codigo} — {e.nome}</option>)}
-            </select>
-          </Campo>
-          <Campo rotulo="Tipo">
+      <Modal aberto={criando} titulo="Novo checklist" onFechar={() => setCriando(false)} largura={940}>
+        <div className="checklist-formulario">
+          <section className="checklist-form-bloco equipamento-bloco">
+            <header><ClipboardCheck size={16} /><h4>Selecionar equipamento</h4><span>obrigatório</span></header>
+            <Campo rotulo="Equipamento">
+              <select value={form.equipamento_id} onChange={(e) => setForm({ ...form, equipamento_id: e.target.value })}>
+                <option value="">Selecione um equipamento…</option>
+                {(equipamentos ?? []).map((e) => <option key={e.id} value={e.id}>{e.codigo} — {e.nome}</option>)}
+              </select>
+            </Campo>
+            {equipamentoSelecionado && (
+              <div className="equipamento-resumo">
+                <div><span>Código</span><b>{equipamentoSelecionado.codigo}</b></div>
+                <div><span>Equipamento</span><b>{equipamentoSelecionado.nome}</b></div>
+                <div><span>Marca / modelo</span><b>{[equipamentoSelecionado.marca, equipamentoSelecionado.modelo].filter(Boolean).join(' · ') || '—'}</b></div>
+                <div><span>Série / local</span><b>{[equipamentoSelecionado.numero_serie, equipamentoSelecionado.localizacao].filter(Boolean).join(' · ') || '—'}</b></div>
+              </div>
+            )}
+          </section>
+
+          <section className="checklist-form-bloco">
+            <header><h4>Tipo de manutenção</h4></header>
             <select value={form.tipo} onChange={(e) => mudarTipo(e.target.value as TipoChecklist)}>
               <option value="preventiva">Preventiva</option>
               <option value="corretiva">Corretiva</option>
             </select>
-          </Campo>
-          <Campo rotulo="Título"><input value={form.titulo} maxLength={160} onChange={(e) => setForm({ ...form, titulo: e.target.value })} placeholder="Limpeza geral" /></Campo>
-          <Campo rotulo="Data prevista"><input type="date" value={form.data_prevista} onChange={(e) => setForm({ ...form, data_prevista: e.target.value })} /></Campo>
-          <Campo rotulo="Técnico responsável"><input value={form.tecnico_nome} maxLength={120} onChange={(e) => setForm({ ...form, tecnico_nome: e.target.value })} placeholder="Nome do técnico" /></Campo>
-          <Campo rotulo="Descrição do serviço">
-            <textarea rows={3} value={form.observacoes} maxLength={2000}
+          </section>
+
+          <section className="checklist-form-bloco">
+            <header><h4>Informações gerais</h4></header>
+            <div className="checklist-info-grid">
+              <Campo rotulo="Título do checklist">
+                <input value={form.titulo} maxLength={160} onChange={(e) => setForm({ ...form, titulo: e.target.value })}
+                  placeholder={form.tipo === 'preventiva' ? 'Manutenção preventiva periódica' : 'Correção de falha no equipamento'} />
+              </Campo>
+              <Campo rotulo="Técnico responsável">
+                <input value={form.tecnico_nome} maxLength={120} onChange={(e) => setForm({ ...form, tecnico_nome: e.target.value })}
+                  placeholder="Nome do técnico" />
+              </Campo>
+              <Campo rotulo="Data prevista">
+                <input type="date" value={form.data_prevista} onChange={(e) => setForm({ ...form, data_prevista: e.target.value })} />
+              </Campo>
+            </div>
+          </section>
+
+          <div className="checklist-modelo">
+            {modelosPorTipo[form.tipo].map((secao) => (
+              <section className="checklist-form-bloco checklist-opcoes" key={secao.titulo}>
+                <header><h4>{secao.titulo}</h4></header>
+                <div className="opcoes-grid">
+                  {secao.itens.map((item) => (
+                    <label key={item}>
+                      <input type="checkbox" checked={form.itens_marcados.includes(item)} onChange={() => alternarItemCriacao(item)} />
+                      <span>{item}</span>
+                    </label>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+
+          <section className="checklist-form-bloco">
+            <header><h4>Descrição do serviço e observações</h4></header>
+            <textarea rows={4} value={form.observacoes} maxLength={2000}
               onChange={(e) => setForm({ ...form, observacoes: e.target.value })}
-              placeholder="Pode ser preenchida agora ou durante a execução" />
-          </Campo>
+              placeholder="Descreva o diagnóstico, o serviço realizado, peças ou componentes utilizados e recomendações…" />
+          </section>
         </div>
 
-        <fieldset className="itens-criacao">
-          <legend>Itens do checklist {form.tipo}</legend>
-          {itensPorTipo[form.tipo].map((item) => (
-            <label key={item}>
-              <input type="checkbox" checked={form.itens_selecionados.includes(item)} onChange={() => alternarItemCriacao(item)} />
-              <span>{item}</span>
-            </label>
-          ))}
-        </fieldset>
-
-        <p className="dica">Selecione os itens que farão parte deste checklist. A descrição pode ser complementada durante a execução.</p>
+        <p className="dica">Marque somente as verificações já realizadas. Itens não aplicáveis podem permanecer desmarcados e ser atualizados durante a execução.</p>
         <div className="modal-acoes">
           <button className="btn" onClick={() => setCriando(false)}>Cancelar</button>
           <button className="btn primario" onClick={() => void criar()}>Criar checklist</button>
         </div>
+      </Modal>
+
+      <Modal aberto={!!editando && !!edicao} titulo="Editar checklist" onFechar={() => { setEditando(null); setEdicao(null) }} largura={940}>
+        {editando && edicao && (
+          <>
+            <div className="checklist-formulario">
+              <section className="checklist-form-bloco equipamento-bloco">
+                <header><ClipboardCheck size={16} /><h4>Equipamento do checklist</h4></header>
+                <div className="equipamento-resumo">
+                  <div><span>Código</span><b>{editando.equipamentos?.codigo || '—'}</b></div>
+                  <div><span>Equipamento</span><b>{editando.equipamentos?.nome || '—'}</b></div>
+                  <div><span>Marca / modelo</span><b>{[editando.equipamentos?.marca, editando.equipamentos?.modelo].filter(Boolean).join(' · ') || '—'}</b></div>
+                  <div><span>Série / local</span><b>{[editando.equipamentos?.numero_serie, editando.equipamentos?.localizacao].filter(Boolean).join(' · ') || '—'}</b></div>
+                </div>
+              </section>
+
+              <section className="checklist-form-bloco">
+                <header><h4>Informações gerais</h4><Badge tom={editando.tipo === 'preventiva' ? 'azul' : 'roxo'}>{titulo(editando.tipo)}</Badge></header>
+                <div className="checklist-edicao-info">
+                  <Campo rotulo="Título do checklist">
+                    <input value={edicao.titulo} maxLength={160} onChange={(e) => setEdicao({ ...edicao, titulo: e.target.value })} />
+                  </Campo>
+                  <Campo rotulo="Técnico responsável">
+                    <input value={edicao.tecnico_nome} maxLength={120} onChange={(e) => setEdicao({ ...edicao, tecnico_nome: e.target.value })} />
+                  </Campo>
+                  <Campo rotulo="Data prevista">
+                    <input type="date" value={edicao.data_prevista} onChange={(e) => setEdicao({ ...edicao, data_prevista: e.target.value })} />
+                  </Campo>
+                  <Campo rotulo="Status">
+                    <select value={edicao.status} onChange={(e) => setEdicao({ ...edicao, status: e.target.value as StatusChecklist })}>
+                      <option value="pendente">Pendente</option>
+                      <option value="em_andamento">Em andamento</option>
+                      <option value="concluido">Concluído</option>
+                      <option value="cancelado">Cancelado</option>
+                    </select>
+                  </Campo>
+                </div>
+              </section>
+
+              <div className="checklist-modelo">
+                {[...gruposEdicao.entries()].map(([nome, itensGrupo]) => (
+                  <section className="checklist-form-bloco checklist-opcoes" key={nome}>
+                    <header>
+                      <h4>{nome}</h4>
+                      <span>{itensGrupo.filter((item) => edicao.itens_marcados.includes(item.id)).length}/{itensGrupo.length}</span>
+                    </header>
+                    <div className="opcoes-grid">
+                      {itensGrupo.map((item) => (
+                        <label key={item.id}>
+                          <input type="checkbox" checked={edicao.itens_marcados.includes(item.id)} onChange={() => alternarItemEdicao(item.id)} />
+                          <span>{item.descricao}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </section>
+                ))}
+                {!itensEdicao.length && <p className="sem-itens">Este checklist não possui itens cadastrados.</p>}
+              </div>
+
+              <section className="checklist-form-bloco">
+                <header><h4>Descrição do serviço e observações</h4></header>
+                <textarea rows={4} value={edicao.observacoes} maxLength={2000}
+                  onChange={(e) => setEdicao({ ...edicao, observacoes: e.target.value })}
+                  placeholder="Descreva o diagnóstico, o serviço realizado, peças utilizadas e recomendações…" />
+              </section>
+            </div>
+
+            <div className="modal-acoes edicao-acoes">
+              <button className="btn perigo" onClick={() => {
+                setEditando(null)
+                setEdicao(null)
+                setExcluir(editando)
+              }}><Trash2 size={15} />Excluir</button>
+              <div>
+                <button className="btn" onClick={() => { setEditando(null); setEdicao(null) }}>Cancelar</button>
+                <button className="btn primario" onClick={() => void salvarEdicao()}><Save size={15} />Salvar alterações</button>
+              </div>
+            </div>
+          </>
+        )}
       </Modal>
 
       <ConfirmarExclusao aberto={!!excluir} onCancelar={() => setExcluir(null)} onConfirmar={() => void confirmarExclusao()}

@@ -44,13 +44,13 @@ export interface Checklist {
   id: string; empresa_id: string; equipamento_id: string; tipo: TipoChecklist; status: StatusChecklist; titulo: string
   responsavel_id: string | null; tecnico_nome: string | null; data_prevista: string; data_conclusao: string | null
   observacoes: string | null; criado_em: string
-  equipamentos?: Pick<Equipamento, 'id' | 'codigo' | 'nome' | 'cidade_id'> | null
+  equipamentos?: Pick<Equipamento, 'id' | 'codigo' | 'nome' | 'marca' | 'modelo' | 'numero_serie' | 'localizacao' | 'cidade_id'> | null
   checklist_itens?: ChecklistItem[]
 }
 
 export interface ChecklistItem {
   id: string; empresa_id: string; checklist_id: string; descricao: string; concluido: boolean
-  observacao: string | null; ordem: number
+  observacao: string | null; secao: string | null; ordem: number
 }
 
 export interface Material {
