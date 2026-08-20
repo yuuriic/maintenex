@@ -9,6 +9,12 @@ import { Badge, Campo, Modal, Painel, Skeleton, StatCard, Vazio } from '../compo
 import { baixarCsv, dataHora, nf } from '../lib/format'
 import type { Estoque as EstoqueTipo, Material, Movimentacao, TipoMovimentacao } from '../lib/types'
 
+const UNIDADES_MATERIAL = [
+  { valor: 'un', rotulo: 'Unidade' },
+  { valor: 'cx', rotulo: 'Caixa' },
+  { valor: 'kit', rotulo: 'Kit' },
+]
+
 export default function Estoque() {
   const { cidadeId, cidadeAtual, empresaId } = useApp()
   const { profile } = useAuth()
@@ -21,7 +27,11 @@ export default function Estoque() {
   const [mov, setMov] = useState({ material_id: '', tipo: 'entrada' as TipoMovimentacao, quantidade: '', motivo: '' })
   const [mat, setMat] = useState({ codigo: '', nome: '', categoria: '', unidade: 'un', estoque_minimo: '' })
 
-  const { dados: materiais, recarregar: recarregarMateriais } = useConsulta<Material[]>(async () => {
+  const {
+    dados: materiais,
+    carregando: carregandoMateriais,
+    recarregar: recarregarMateriais,
+  } = useConsulta<Material[]>(async () => {
     let query = supabase.from('materiais').select('*').order('nome')
     if (empresaId) query = query.eq('empresa_id', empresaId)
     const { data, error } = await query
@@ -47,9 +57,44 @@ export default function Estoque() {
     return (data ?? []) as Movimentacao[]
   }, [cidadeId])
 
+  const saldosCompletos = useMemo(() => {
+    const porMaterial = new Map<string, EstoqueTipo>()
+
+    for (const saldo of saldos ?? []) {
+      const atual = porMaterial.get(saldo.material_id)
+      if (!atual) {
+        porMaterial.set(saldo.material_id, saldo)
+        continue
+      }
+
+      porMaterial.set(saldo.material_id, {
+        ...atual,
+        quantidade: atual.quantidade + saldo.quantidade,
+        atualizado_em: atual.atualizado_em > saldo.atualizado_em
+          ? atual.atualizado_em
+          : saldo.atualizado_em,
+      })
+    }
+
+    return (materiais ?? []).map((material) => {
+      const saldo = porMaterial.get(material.id)
+      if (saldo) return { ...saldo, materiais: material }
+
+      return {
+        id: `sem-saldo-${material.id}`,
+        empresa_id: material.empresa_id,
+        material_id: material.id,
+        cidade_id: cidadeId ?? '',
+        quantidade: 0,
+        atualizado_em: material.criado_em,
+        materiais: material,
+      }
+    })
+  }, [materiais, saldos, cidadeId])
+
   const lista = useMemo(() => {
     const termo = busca.trim().toLowerCase()
-    return (saldos ?? [])
+    return saldosCompletos
       .filter((s) => {
         const m = s.materiais
         const casaBusca = !termo || [m?.codigo, m?.nome, m?.categoria].some((v) => v?.toLowerCase().includes(termo))
@@ -57,17 +102,17 @@ export default function Estoque() {
         return casaBusca && baixo
       })
       .sort((a, b) => (a.materiais?.nome ?? '').localeCompare(b.materiais?.nome ?? ''))
-  }, [saldos, busca, somenteBaixo])
+  }, [saldosCompletos, busca, somenteBaixo])
 
   const kpis = useMemo(() => {
-    const todos = saldos ?? []
+    const todos = saldosCompletos
     return {
-      itens: todos.length,
+      itens: todos.filter((s) => s.quantidade > 0).length,
       unidades: todos.reduce((soma, s) => soma + s.quantidade, 0),
       abaixoMinimo: todos.filter((s) => s.quantidade <= (s.materiais?.estoque_minimo ?? 0)).length,
       zerados: todos.filter((s) => s.quantidade === 0).length,
     }
-  }, [saldos])
+  }, [saldosCompletos])
 
   async function registrarMovimentacao() {
     if (!cidadeId) { toast.erro('Selecione uma cidade no topo.'); return }
@@ -147,7 +192,7 @@ export default function Estoque() {
 
       <div className="estoque-grid">
         <Painel titulo="Saldos">
-          {carregando ? <Skeleton /> : !lista.length ? <Vazio texto="Nenhum material no escopo" compacto /> : (
+          {carregando || carregandoMateriais ? <Skeleton /> : !lista.length ? <Vazio texto="Nenhum material no escopo" compacto /> : (
             <div className="tabela-wrap">
               <table className="tabela">
                 <thead><tr><th>Código</th><th>Material</th><th>Categoria</th><th>Saldo</th><th>Mínimo</th><th>Status</th></tr></thead>
@@ -229,7 +274,13 @@ export default function Estoque() {
           <Campo rotulo="Código"><input value={mat.codigo} onChange={(e) => setMat({ ...mat, codigo: e.target.value })} placeholder="MAT-009" /></Campo>
           <Campo rotulo="Nome"><input value={mat.nome} onChange={(e) => setMat({ ...mat, nome: e.target.value })} /></Campo>
           <Campo rotulo="Categoria"><input value={mat.categoria} onChange={(e) => setMat({ ...mat, categoria: e.target.value })} /></Campo>
-          <Campo rotulo="Unidade"><input value={mat.unidade} onChange={(e) => setMat({ ...mat, unidade: e.target.value })} /></Campo>
+          <Campo rotulo="Unidade">
+            <select value={mat.unidade} onChange={(e) => setMat({ ...mat, unidade: e.target.value })}>
+              {UNIDADES_MATERIAL.map((unidade) => (
+                <option key={unidade.valor} value={unidade.valor}>{unidade.rotulo}</option>
+              ))}
+            </select>
+          </Campo>
           <Campo rotulo="Estoque mínimo"><input type="number" min={0} value={mat.estoque_minimo} onChange={(e) => setMat({ ...mat, estoque_minimo: e.target.value })} placeholder="0" /></Campo>
         </div>
         <div className="modal-acoes">

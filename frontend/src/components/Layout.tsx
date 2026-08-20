@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { ChevronsLeft, LogOut, Moon, PanelLeft, Search, Sun } from 'lucide-react'
+import { ChevronsLeft, ChevronsRight, LogOut, Moon, Search, Sun } from 'lucide-react'
 import { navegacaoVisivel } from './navegacao'
 import { AnimatedIcon } from './AnimatedIcon'
 import { CommandPalette } from './CommandPalette'
@@ -30,16 +30,26 @@ export default function Layout() {
   return (
     <div className={`shell ${recolhida ? 'recolhida' : ''}`}>
       <aside>
+        <button
+          type="button"
+          className="recolher"
+          onClick={() => setRecolhida((v) => !v)}
+          aria-label={recolhida ? 'Expandir menu' : 'Recolher menu'}
+          aria-expanded={!recolhida}
+          title={recolhida ? 'Expandir menu' : 'Recolher menu'}
+        >
+          {recolhida ? (
+            <ChevronsRight size={19} strokeWidth={2.7} />
+          ) : (
+            <ChevronsLeft size={18} strokeWidth={2.4} />
+          )}
+        </button>
         <div className="brand">
           <div className="brand-mark">M</div>
           <div className="brand-texto">
             <b>Maintenex</b>
             <small>{profile?.empresas?.nome ?? 'Gestão de manutenção'}</small>
           </div>
-          <button className="icone-btn recolher" onClick={() => setRecolhida((v) => !v)}
-            aria-label={recolhida ? 'Expandir menu' : 'Recolher menu'}>
-            {recolhida ? <PanelLeft size={16} /> : <ChevronsLeft size={16} />}
-          </button>
         </div>
 
         <nav>
