@@ -26,6 +26,7 @@ export interface Setor { id: string; empresa_id: string; cidade_id: string; nome
 
 export interface Profile {
   id: string; empresa_id: string | null; nome: string; email: string; papel: PapelUsuario
+  telefone: string | null; email_verificado: boolean
   cidade_id: string | null; avatar_url: string | null; ativo: boolean; criado_em: string
   empresas?: Pick<Empresa, 'id' | 'nome' | 'slug' | 'status'> | null
 }

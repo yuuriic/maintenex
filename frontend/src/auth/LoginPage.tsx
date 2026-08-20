@@ -1,13 +1,24 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Building2, Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck, User } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Building2, Eye, EyeOff, Loader2, Lock, Mail, Phone, ShieldCheck, User } from 'lucide-react'
 import { aplicarSeo } from '../lib/seo'
 import { useAuth } from './AuthProvider'
 import { supabaseConfigurado } from '../lib/supabase'
 import { useToast } from '../components/Toast'
 import Aurora from '../components/ui/aurora'
 
-type Modo = 'entrar' | 'cadastrar' | 'recuperar'
+type Modo = 'entrar' | 'cadastrar' | 'confirmar' | 'recuperar'
+type ErrosCampos = Partial<Record<'nome' | 'email' | 'telefone' | 'senha' | 'confirmacao' | 'codigo', string>>
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+
+function normalizarTelefone(valor: string) {
+  const temMais = valor.trim().startsWith('+')
+  const digitos = valor.replace(/\D/g, '')
+  if (temMais && digitos.length >= 10 && digitos.length <= 15) return `+${digitos}`
+  if (digitos.length === 10 || digitos.length === 11) return `+55${digitos}`
+  return null
+}
 
 const destaques = [
   ['Checklists preventivos', 'Rotinas por equipamento com histórico completo.'],
@@ -16,17 +27,30 @@ const destaques = [
 ]
 
 export default function LoginPage() {
-  const { session, recuperandoSenha, entrar, cadastrar, recuperarSenha } = useAuth()
+  const { session, recuperandoSenha, entrar, cadastrar, confirmarCadastro, reenviarCodigoCadastro, recuperarSenha } = useAuth()
   const toast = useToast()
   const [params] = useSearchParams()
   const [modo, setModo] = useState<Modo>(params.get('modo') === 'cadastrar' ? 'cadastrar' : 'entrar')
   const [nome, setNome] = useState('')
   const [empresa, setEmpresa] = useState('')
   const [email, setEmail] = useState('')
+  const [telefone, setTelefone] = useState('')
   const [senha, setSenha] = useState('')
+  const [confirmacaoSenha, setConfirmacaoSenha] = useState('')
+  const [codigo, setCodigo] = useState('')
   const [verSenha, setVerSenha] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+  const [errosCampos, setErrosCampos] = useState<ErrosCampos>({})
+  const [reenvios, setReenvios] = useState(0)
+  const [proximoReenvio, setProximoReenvio] = useState(0)
+  const [agora, setAgora] = useState(Date.now())
+
+  useEffect(() => {
+    if (proximoReenvio <= Date.now()) return
+    const timer = window.setInterval(() => setAgora(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [proximoReenvio])
 
   useEffect(() => {
     aplicarSeo({
@@ -49,6 +73,18 @@ export default function LoginPage() {
   async function enviar(evento: FormEvent) {
     evento.preventDefault()
     setErro(null)
+    const novosErros: ErrosCampos = {}
+    if (!EMAIL_RE.test(email.trim())) novosErros.email = 'Informe um e-mail válido.'
+    if (modo === 'cadastrar') {
+      if (!nome.trim()) novosErros.nome = 'Informe seu nome.'
+      if (!telefone.trim()) novosErros.telefone = 'Informe seu telefone.'
+      else if (!normalizarTelefone(telefone)) novosErros.telefone = 'Use DDD + número ou formato internacional com +.'
+      if (senha.length < 6) novosErros.senha = 'Use pelo menos 6 caracteres.'
+      if (senha !== confirmacaoSenha) novosErros.confirmacao = 'As senhas não coincidem.'
+    }
+    if (modo === 'confirmar' && !/^\d{6}$/.test(codigo)) novosErros.codigo = 'Informe os 6 dígitos do código.'
+    setErrosCampos(novosErros)
+    if (Object.keys(novosErros).length) return
     setEnviando(true)
     try {
       if (modo === 'entrar') {
@@ -58,12 +94,17 @@ export default function LoginPage() {
           nome: nome.trim(),
           email: email.trim(),
           senha,
+          telefone: normalizarTelefone(telefone)!,
           empresa: empresa.trim() || undefined,
         })
-        toast.sucesso(precisaConfirmar
-          ? 'Conta criada. Confirme o e-mail para entrar.'
-          : 'Conta criada com sucesso.')
-        if (precisaConfirmar) setModo('entrar')
+        if (precisaConfirmar) {
+          toast.sucesso('Enviamos um código de confirmação para seu e-mail.')
+          setModo('confirmar')
+          setProximoReenvio(Date.now() + 60_000)
+        } else toast.sucesso('Conta criada com sucesso.')
+      } else if (modo === 'confirmar') {
+        await confirmarCadastro(email.trim(), codigo)
+        toast.sucesso('E-mail confirmado. Sua conta está ativa.')
       } else {
         await recuperarSenha(email.trim())
         toast.sucesso('Enviamos um link de recuperação para seu e-mail.')
@@ -71,6 +112,23 @@ export default function LoginPage() {
       }
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Falha inesperada.')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  async function reenviarCodigo() {
+    if (reenvios >= 3 || proximoReenvio > Date.now()) return
+    setErro(null)
+    setEnviando(true)
+    try {
+      await reenviarCodigoCadastro(email.trim())
+      setReenvios((valor) => valor + 1)
+      setProximoReenvio(Date.now() + 60_000)
+      setAgora(Date.now())
+      toast.sucesso('Novo código enviado.')
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Não foi possível reenviar o código.')
     } finally {
       setEnviando(false)
     }
@@ -108,7 +166,7 @@ export default function LoginPage() {
 
       <main className="login-panel">
         <div className="login-card">
-          <div className="login-tabs" role="tablist">
+          {modo !== 'confirmar' && <div className="login-tabs" role="tablist">
             {(['entrar', 'cadastrar'] as const).map((m) => (
               <button
                 key={m}
@@ -121,15 +179,18 @@ export default function LoginPage() {
                 {m === 'entrar' ? 'Entrar' : 'Criar conta'}
               </button>
             ))}
-          </div>
+          </div>}
 
           <h2>
             {modo === 'entrar' && 'Bem-vindo de volta'}
             {modo === 'cadastrar' && 'Crie sua conta'}
+            {modo === 'confirmar' && 'Confirme seu e-mail'}
             {modo === 'recuperar' && 'Recuperar acesso'}
           </h2>
           <p className="login-sub">
-            {modo === 'recuperar'
+            {modo === 'confirmar'
+              ? `Digite o código de 6 dígitos enviado para ${email}.`
+              : modo === 'recuperar'
               ? 'Informe o e-mail cadastrado e enviaremos um link de redefinição.'
               : 'Use seu e-mail corporativo para acessar o painel.'}
           </p>
@@ -151,6 +212,7 @@ export default function LoginPage() {
                     <input value={nome} onChange={(e) => setNome(e.target.value)}
                       placeholder="Seu nome" required autoComplete="name" />
                   </div>
+                  {errosCampos.nome && <small className="campo-erro">{errosCampos.nome}</small>}
                 </label>
 
                 <label className="campo">
@@ -175,9 +237,22 @@ export default function LoginPage() {
                 <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
                   placeholder="voce@empresa.com.br" required autoComplete="email" />
               </div>
+              {errosCampos.email && <small className="campo-erro">{errosCampos.email}</small>}
             </label>
 
-            {modo !== 'recuperar' && (
+            {modo === 'cadastrar' && (
+              <label className="campo">
+                <span>Telefone</span>
+                <div className="campo-input">
+                  <Phone size={17} />
+                  <input type="tel" value={telefone} onChange={(e) => setTelefone(e.target.value)}
+                    placeholder="(11) 99999-9999" required autoComplete="tel" />
+                </div>
+                {errosCampos.telefone && <small className="campo-erro">{errosCampos.telefone}</small>}
+              </label>
+            )}
+
+            {(modo === 'entrar' || modo === 'cadastrar') && (
               <label className="campo">
                 <span>Senha</span>
                 <div className="campo-input">
@@ -191,6 +266,33 @@ export default function LoginPage() {
                     {verSenha ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
+                {errosCampos.senha && <small className="campo-erro">{errosCampos.senha}</small>}
+              </label>
+            )}
+
+            {modo === 'cadastrar' && (
+              <label className="campo">
+                <span>Confirmar senha</span>
+                <div className="campo-input">
+                  <Lock size={17} />
+                  <input type={verSenha ? 'text' : 'password'} value={confirmacaoSenha}
+                    onChange={(e) => setConfirmacaoSenha(e.target.value)} required minLength={6}
+                    autoComplete="new-password" />
+                </div>
+                {errosCampos.confirmacao && <small className="campo-erro">{errosCampos.confirmacao}</small>}
+              </label>
+            )}
+
+            {modo === 'confirmar' && (
+              <label className="campo">
+                <span>Código de confirmação</span>
+                <div className="campo-input codigo-input">
+                  <Mail size={17} />
+                  <input inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={codigo}
+                    onChange={(e) => setCodigo(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="000000" required autoComplete="one-time-code" autoFocus />
+                </div>
+                {errosCampos.codigo && <small className="campo-erro">{errosCampos.codigo}</small>}
               </label>
             )}
 
@@ -200,12 +302,25 @@ export default function LoginPage() {
               {enviando ? <Loader2 size={17} className="girando" /> : <ArrowRight size={17} />}
               {modo === 'entrar' && 'Entrar'}
               {modo === 'cadastrar' && 'Criar conta'}
+              {modo === 'confirmar' && 'Confirmar conta'}
               {modo === 'recuperar' && 'Enviar link'}
             </button>
           </form>
 
           <div className="login-rodape">
-            {modo === 'recuperar' ? (
+            {modo === 'confirmar' ? (
+              <>
+                <button type="button" onClick={reenviarCodigo}
+                  disabled={enviando || reenvios >= 3 || proximoReenvio > agora}>
+                  {reenvios >= 3
+                    ? 'Limite de reenvios atingido'
+                    : proximoReenvio > agora
+                      ? `Reenviar em ${Math.ceil((proximoReenvio - agora) / 1000)}s`
+                      : 'Reenviar código'}
+                </button>
+                <button type="button" onClick={() => setModo('cadastrar')}>Corrigir meus dados</button>
+              </>
+            ) : modo === 'recuperar' ? (
               <button type="button" onClick={() => setModo('entrar')}>Voltar para o login</button>
             ) : (
               <button type="button" onClick={() => setModo('recuperar')}>Esqueci minha senha</button>

@@ -1002,6 +1002,10 @@ main > header select { width: auto; min-width: 150px; }
 .lp-rodape nav { display: flex; gap: 18px; margin-left: auto; }
 
 .campo .ajuda { color: var(--txt-fraco); font-size: .76rem; line-height: 1.45; }
+.campo-erro { color: var(--vermelho); font-size: .76rem; line-height: 1.35; }
+.campo:has(.campo-erro) .campo-input { border-color: color-mix(in srgb, var(--vermelho) 65%, var(--borda)); }
+.codigo-input input { font-size: 1.25rem; font-weight: 700; letter-spacing: .35em; text-align: center; }
+.login-rodape:has(button + button) { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px 18px; }
 .login-voltar {
   display: inline-flex; align-items: center; gap: 6px;
   color: var(--txt-fraco); text-decoration: none; font-size: .82rem;

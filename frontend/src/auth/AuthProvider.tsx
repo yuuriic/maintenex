@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase, supabaseConfigurado } from '../lib/supabase'
 import type { Profile } from '../lib/types'
+import { authApiConfigurada, chamarAuth } from '../lib/auth-api'
 
 interface AuthContextValue {
   session: Session | null
@@ -11,6 +12,8 @@ interface AuthContextValue {
   recuperandoSenha: boolean
   entrar: (email: string, senha: string) => Promise<void>
   cadastrar: (dados: DadosCadastro) => Promise<{ precisaConfirmar: boolean }>
+  confirmarCadastro: (email: string, codigo: string) => Promise<void>
+  reenviarCodigoCadastro: (email: string) => Promise<void>
   recuperarSenha: (email: string) => Promise<void>
   sair: () => Promise<void>
   atualizarPerfil: (dados: Partial<Profile>) => Promise<void>
@@ -20,6 +23,7 @@ export interface DadosCadastro {
   nome: string
   email: string
   senha: string
+  telefone: string
   /** Preenchido no auto-cadastro: o primeiro usuário vira owner da empresa criada. */
   empresa?: string
 }
@@ -61,6 +65,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           id,
           nome: session!.user.user_metadata?.nome ?? session!.user.email?.split('@')[0] ?? 'Usuário',
           email: session!.user.email ?? '',
+          telefone: session!.user.user_metadata?.telefone ?? null,
+          email_verificado: Boolean(session!.user.email_confirmed_at),
           papel: 'leitor',
           empresa_id: null,
           cidade_id: null,
@@ -85,18 +91,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) throw new Error(traduzErro(error.message))
     },
 
-    async cadastrar({ nome, email, senha, empresa }) {
+    async cadastrar({ nome, email, senha, telefone, empresa }) {
+      if (authApiConfigurada) {
+        const data = await chamarAuth<{ access_token?: string }>('signup', { nome, email, telefone, senha, empresa })
+        return { precisaConfirmar: !data.access_token }
+      }
       const { data, error } = await supabase.auth.signUp({
         email,
         password: senha,
-        options: { data: { nome, ...(empresa ? { empresa_nome: empresa } : {}) } },
+        options: { data: { nome, telefone, ...(empresa ? { empresa_nome: empresa } : {}) } },
       })
       if (error) throw new Error(traduzErro(error.message))
+      if (data.user?.identities?.length === 0) {
+        throw new Error('Este e-mail já está cadastrado.')
+      }
       return { precisaConfirmar: !data.session }
+    },
+
+    async confirmarCadastro(email, codigo) {
+      if (authApiConfigurada) {
+        const data = await chamarAuth<{ access_token: string; refresh_token: string }>('verify', { email, codigo })
+        const { error } = await supabase.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token })
+        if (error) throw new Error(traduzErro(error.message))
+        return
+      }
+      const { error } = await supabase.auth.verifyOtp({ email, token: codigo, type: 'signup' })
+      if (error) throw new Error(traduzErro(error.message))
+    },
+
+    async reenviarCodigoCadastro(email) {
+      if (authApiConfigurada) {
+        await chamarAuth<void>('resend', { email })
+        return
+      }
+      const { error } = await supabase.auth.resend({ type: 'signup', email })
+      if (error) throw new Error(traduzErro(error.message))
     },
 
     async recuperarSenha(email) {
       const siteUrl = (import.meta.env.VITE_SITE_URL ?? window.location.origin).replace(/\/$/, '')
+      if (authApiConfigurada) {
+        await chamarAuth<void>('recover', { email, redirectTo: `${siteUrl}/redefinir-senha` })
+        return
+      }
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${siteUrl}/redefinir-senha`,
       })
@@ -134,6 +171,10 @@ function traduzErro(mensagem: string) {
     'User already registered': 'Este e-mail já está cadastrado.',
     'Password should be at least 6 characters': 'A senha precisa ter ao menos 6 caracteres.',
     'Unable to validate email address: invalid format': 'Formato de e-mail inválido.',
+    'Token has expired or is invalid': 'O código é inválido ou expirou.',
+    'Email rate limit exceeded': 'Muitas tentativas. Aguarde alguns minutos antes de reenviar.',
+    'For security purposes, you can only request this after': 'Aguarde antes de solicitar um novo código.',
   }
-  return mapa[mensagem] ?? mensagem
+  const correspondencia = Object.entries(mapa).find(([texto]) => mensagem.startsWith(texto))
+  return correspondencia?.[1] ?? mensagem
 }

@@ -87,9 +87,32 @@ refaça o deploy.
 | --- | --- | --- |
 | `VITE_SUPABASE_URL` | sim | URL do projeto Supabase |
 | `VITE_SUPABASE_ANON_KEY` | sim | chave `anon public` (ou `sb_publishable_…`) |
-| `VITE_SITE_URL` | não | domínio público, usado em canonical/OG. Padrão: `https://www.maintenex.com.br` |
+| `VITE_SITE_URL` | não | domínio público e destino dos links de recuperação |
+| `VITE_API_URL` | não | URL da API Spring; sem ela, o frontend usa Supabase Auth diretamente |
 
 Nunca publique a `service_role` no frontend.
+
+### E-mail transacional: Resend + Supabase
+
+1. No Resend, valide um domínio de envio e crie uma API key.
+2. Em **Supabase → Authentication → Email → SMTP Settings**, habilite SMTP e use:
+   - host `smtp.resend.com`, porta `465`, usuário `resend`;
+   - senha igual à API key do Resend;
+   - remetente pertencente ao domínio validado (por exemplo `no-reply@auth.seudominio.com`).
+3. Mantenha **Confirm email** habilitado. No template **Confirm signup**, inclua o código
+   `{{ .Token }}` no corpo; o cadastro espera o OTP de seis dígitos, não o clique em link.
+4. Em **URL Configuration**, defina **Site URL** como o domínio de produção e adicione
+   `https://SEU_DOMINIO/redefinir-senha` e `http://localhost:5173/redefinir-senha` nas Redirect URLs.
+5. Aplique `frontend/src/supabase/migrations/0006_verificacao_cadastro.sql` para salvar
+   telefone e status de verificação no perfil.
+
+O mesmo SMTP envia confirmação e recuperação de senha. Para diagnosticar entrega, confira
+**Authentication → Logs** no Supabase e **Emails → Logs** no Resend; verifique também bounce,
+suppression e os registros SPF/DKIM/DMARC do domínio.
+
+Se a API Spring for usada, configure no backend `SUPABASE_URL` e
+`SUPABASE_PUBLISHABLE_KEY`. Os endpoints públicos são `POST /api/auth/signup`,
+`/verify`, `/resend` (máximo de 3 reenvios por hora) e `/recover`.
 
 ## Deploy na Vercel
 
