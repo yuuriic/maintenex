@@ -127,10 +127,11 @@ public class AuthController {
             @NotBlank String nome,
             @NotBlank @Email String email,
             @NotBlank @Pattern(regexp = "^[+()0-9 .-]{10,22}$") String telefone,
-            @NotBlank @Size(min = 6, max = 72) String senha,
+            @NotBlank @Size(min = 8, max = 72)
+            @Pattern(regexp = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[^A-Za-z0-9]).{8,72}$") String senha,
             String empresa) {}
 
-    record VerifyRequest(@NotBlank @Email String email, @NotBlank @Pattern(regexp = "^\\d{6}$") String codigo) {}
+    record VerifyRequest(@NotBlank @Email String email, @NotBlank @Pattern(regexp = "^\\d{6,8}$") String codigo) {}
     record EmailRequest(@NotBlank @Email String email) {}
     record RecoverRequest(@NotBlank @Email String email, @NotBlank String redirectTo) {}
     record ResendState(Instant windowStart, Instant lastSent, int attempts) {}

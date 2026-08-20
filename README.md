@@ -89,6 +89,7 @@ refaça o deploy.
 | `VITE_SUPABASE_ANON_KEY` | sim | chave `anon public` (ou `sb_publishable_…`) |
 | `VITE_SITE_URL` | não | domínio público e destino dos links de recuperação |
 | `VITE_API_URL` | não | URL da API Spring; sem ela, o frontend usa Supabase Auth diretamente |
+| `VITE_EMAIL_OTP_LENGTH` | não | Tamanho do OTP configurado no Supabase; padrão `8` |
 
 Nunca publique a `service_role` no frontend.
 
@@ -100,7 +101,7 @@ Nunca publique a `service_role` no frontend.
    - senha igual à API key do Resend;
    - remetente pertencente ao domínio validado (por exemplo `no-reply@auth.seudominio.com`).
 3. Mantenha **Confirm email** habilitado. No template **Confirm signup**, inclua o código
-   `{{ .Token }}` no corpo; o cadastro espera o OTP de seis dígitos, não o clique em link.
+   `{{ .Token }}` no corpo; o cadastro aceita o OTP configurado com seis a oito dígitos.
 4. Em **URL Configuration**, defina **Site URL** como o domínio de produção e adicione
    `https://SEU_DOMINIO/redefinir-senha` e `http://localhost:5173/redefinir-senha` nas Redirect URLs.
 5. Aplique `frontend/src/supabase/migrations/0006_verificacao_cadastro.sql` para salvar

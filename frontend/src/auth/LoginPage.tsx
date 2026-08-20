@@ -6,11 +6,14 @@ import { useAuth } from './AuthProvider'
 import { supabaseConfigurado } from '../lib/supabase'
 import { useToast } from '../components/Toast'
 import Aurora from '../components/ui/aurora'
+import PasswordStrength, { senhaAtendeRequisitos } from '../components/ui/password-strength'
+import OtpInput from '../components/ui/otp-input'
 
 type Modo = 'entrar' | 'cadastrar' | 'confirmar' | 'recuperar'
 type ErrosCampos = Partial<Record<'nome' | 'email' | 'telefone' | 'senha' | 'confirmacao' | 'codigo', string>>
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+const OTP_LENGTH = Math.min(8, Math.max(6, Number(import.meta.env.VITE_EMAIL_OTP_LENGTH) || 8))
 
 function normalizarTelefone(valor: string) {
   const temMais = valor.trim().startsWith('+')
@@ -79,10 +82,12 @@ export default function LoginPage() {
       if (!nome.trim()) novosErros.nome = 'Informe seu nome.'
       if (!telefone.trim()) novosErros.telefone = 'Informe seu telefone.'
       else if (!normalizarTelefone(telefone)) novosErros.telefone = 'Use DDD + número ou formato internacional com +.'
-      if (senha.length < 6) novosErros.senha = 'Use pelo menos 6 caracteres.'
+      if (!senhaAtendeRequisitos(senha)) novosErros.senha = 'Atenda a todos os requisitos da senha.'
       if (senha !== confirmacaoSenha) novosErros.confirmacao = 'As senhas não coincidem.'
     }
-    if (modo === 'confirmar' && !/^\d{6}$/.test(codigo)) novosErros.codigo = 'Informe os 6 dígitos do código.'
+    if (modo === 'confirmar' && !new RegExp(`^\\d{${OTP_LENGTH}}$`).test(codigo)) {
+      novosErros.codigo = `Informe os ${OTP_LENGTH} dígitos do código.`
+    }
     setErrosCampos(novosErros)
     if (Object.keys(novosErros).length) return
     setEnviando(true)
@@ -189,7 +194,7 @@ export default function LoginPage() {
           </h2>
           <p className="login-sub">
             {modo === 'confirmar'
-              ? `Digite o código de 6 dígitos enviado para ${email}.`
+              ? `Digite o código enviado para ${email}.`
               : modo === 'recuperar'
               ? 'Informe o e-mail cadastrado e enviaremos um link de redefinição.'
               : 'Use seu e-mail corporativo para acessar o painel.'}
@@ -252,7 +257,7 @@ export default function LoginPage() {
               </label>
             )}
 
-            {(modo === 'entrar' || modo === 'cadastrar') && (
+            {modo === 'entrar' && (
               <label className="campo">
                 <span>Senha</span>
                 <div className="campo-input">
@@ -271,12 +276,18 @@ export default function LoginPage() {
             )}
 
             {modo === 'cadastrar' && (
+              <PasswordStrength id="senha-cadastro" label="Senha" password={senha}
+                onChange={setSenha} visible={verSenha} onToggleVisible={() => setVerSenha((v) => !v)}
+                erro={errosCampos.senha} />
+            )}
+
+            {modo === 'cadastrar' && (
               <label className="campo">
                 <span>Confirmar senha</span>
                 <div className="campo-input">
                   <Lock size={17} />
                   <input type={verSenha ? 'text' : 'password'} value={confirmacaoSenha}
-                    onChange={(e) => setConfirmacaoSenha(e.target.value)} required minLength={6}
+                    onChange={(e) => setConfirmacaoSenha(e.target.value)} required minLength={8}
                     autoComplete="new-password" />
                 </div>
                 {errosCampos.confirmacao && <small className="campo-erro">{errosCampos.confirmacao}</small>}
@@ -284,21 +295,20 @@ export default function LoginPage() {
             )}
 
             {modo === 'confirmar' && (
-              <label className="campo">
-                <span>Código de confirmação</span>
-                <div className="campo-input codigo-input">
-                  <Mail size={17} />
-                  <input inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={codigo}
-                    onChange={(e) => setCodigo(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="000000" required autoComplete="one-time-code" autoFocus />
-                </div>
-                {errosCampos.codigo && <small className="campo-erro">{errosCampos.codigo}</small>}
-              </label>
+              <OtpInput length={OTP_LENGTH} value={codigo} disabled={enviando} autoFocus
+                status={erro || errosCampos.codigo ? 'error' : 'idle'}
+                message={errosCampos.codigo ?? erro ?? `Código de ${OTP_LENGTH} dígitos`}
+                onChange={(valor) => {
+                  setCodigo(valor)
+                  setErro(null)
+                  setErrosCampos((atuais) => ({ ...atuais, codigo: undefined }))
+                }} />
             )}
 
-            {erro && <div className="alerta erro">{erro}</div>}
+            {erro && modo !== 'confirmar' && <div className="alerta erro">{erro}</div>}
 
-            <button className="btn primario grande" disabled={enviando || !supabaseConfigurado}>
+            <button className="btn primario grande"
+              disabled={enviando || !supabaseConfigurado || (modo === 'confirmar' && codigo.length !== OTP_LENGTH)}>
               {enviando ? <Loader2 size={17} className="girando" /> : <ArrowRight size={17} />}
               {modo === 'entrar' && 'Entrar'}
               {modo === 'cadastrar' && 'Criar conta'}
