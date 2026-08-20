@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import {
-  Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart,
+  Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis, Legend,
 } from 'recharts'
 import { Download, FileSpreadsheet } from 'lucide-react'
@@ -54,7 +54,7 @@ export default function Relatorios() {
         acc[titulo(e.status)] = (acc[titulo(e.status)] ?? 0) + 1
         return acc
       }, {}),
-    ).map(([nome, valor]) => ({ nome, valor }))
+    ).map(([nome, valor], index) => ({ nome, valor, fill: CORES[index % CORES.length] }))
 
     const porSetor = Object.entries(
       d.checklists.reduce<Record<string, number>>((acc, c) => {
@@ -166,9 +166,7 @@ export default function Relatorios() {
               {!rel.porStatusEquip.length ? <Vazio compacto /> : (
                 <ResponsiveContainer width="100%" height={220}>
                   <PieChart>
-                    <Pie data={rel.porStatusEquip} dataKey="valor" nameKey="nome" outerRadius={80}>
-                      {rel.porStatusEquip.map((_, i) => <Cell key={i} fill={CORES[i % CORES.length]} />)}
-                    </Pie>
+                    <Pie data={rel.porStatusEquip} dataKey="valor" nameKey="nome" outerRadius={80} />
                     <Tooltip contentStyle={tooltipEstilo} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                   </PieChart>

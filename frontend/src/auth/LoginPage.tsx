@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState, type SubmitEvent } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Building2, Eye, EyeOff, Loader2, Lock, Mail, Phone, ShieldCheck, User } from 'lucide-react'
 import { aplicarSeo } from '../lib/seo'
@@ -73,7 +73,7 @@ export default function LoginPage() {
   }
   if (session) return <Navigate to="/app" replace />
 
-  async function enviar(evento: FormEvent) {
+  async function enviar(evento: SubmitEvent<HTMLFormElement>) {
     evento.preventDefault()
     setErro(null)
     const novosErros: ErrosCampos = {}

@@ -1,5 +1,7 @@
 package com.maintenex.health;
 
+import java.util.Objects;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -28,13 +30,15 @@ class HealthControllerTest {
 
     @Test
     void rejectsAuthenticatedStateChangingRequestWithoutCsrfToken() throws Exception {
-        mockMvc.perform(post("/api/health").with(user("test-user")))
+        mockMvc.perform(post("/api/health").with(Objects.requireNonNull(user("test-user"))))
                 .andExpect(status().isForbidden());
     }
 
     @Test
     void acceptsCsrfTokenBeforeRoutingStateChangingRequest() throws Exception {
-        mockMvc.perform(post("/api/health").with(user("test-user")).with(csrf()))
+        mockMvc.perform(post("/api/health")
+                        .with(Objects.requireNonNull(user("test-user")))
+                        .with(Objects.requireNonNull(csrf())))
                 .andExpect(status().isMethodNotAllowed());
     }
 } 

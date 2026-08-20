@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState, type SubmitEvent } from 'react'
 import { ArrowLeft, ArrowRight, Loader2, Lock, ShieldCheck } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -37,7 +37,7 @@ export default function RedefinirSenhaPage() {
     }
   }, [])
 
-  async function salvar(evento: FormEvent) {
+  async function salvar(evento: SubmitEvent<HTMLFormElement>) {
     evento.preventDefault()
     setErro(null)
 

@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart,
+  Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import { Activity, Boxes, Printer, TriangleAlert } from 'lucide-react'
@@ -93,7 +93,9 @@ export default function Dashboard() {
         acc[nome] = (acc[nome] ?? 0) + 1
         return acc
       }, {}),
-    ).map(([nome, valor]) => ({ nome, valor })).sort((a, b) => b.valor - a.valor)
+    ).map(([nome, valor]) => ({ nome, valor }))
+      .sort((a, b) => b.valor - a.valor)
+      .map((item, index) => ({ ...item, fill: CORES[index % CORES.length] }))
 
     const topMateriais = Object.values(
       d.movimentacoes.filter((mo) => mo.tipo === 'saida').reduce<Record<string, { nome: string; qtd: number }>>((acc, mo) => {
@@ -190,9 +192,7 @@ export default function Dashboard() {
           {!m.porSetor.length ? <Vazio texto="Sem dados para exibir" compacto /> : (
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
-                <Pie data={m.porSetor} dataKey="valor" nameKey="nome" innerRadius={52} outerRadius={82} paddingAngle={3}>
-                  {m.porSetor.map((_, i) => <Cell key={i} fill={CORES[i % CORES.length]} />)}
-                </Pie>
+                <Pie data={m.porSetor} dataKey="valor" nameKey="nome" innerRadius={52} outerRadius={82} paddingAngle={3} />
                 <Tooltip contentStyle={tooltipEstilo} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
               </PieChart>

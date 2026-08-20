@@ -22,6 +22,7 @@ import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
@@ -58,7 +59,10 @@ public class AuthController {
                 "telefone", normalizePhone(request.telefone()),
                 "empresa_nome", request.empresa() == null ? "" : request.empresa().trim());
         JsonNode response = auth.post().uri("/signup")
-                .body(Map.of("email", request.email().trim().toLowerCase(), "password", request.senha(), "data", data))
+                .body(Objects.requireNonNull(Map.of(
+                        "email", request.email().trim().toLowerCase(),
+                        "password", request.senha(),
+                        "data", data)))
                 .retrieve().body(JsonNode.class);
         if (response != null && response.path("identities").isArray() && response.path("identities").isEmpty()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Este e-mail já está cadastrado.");
@@ -70,7 +74,10 @@ public class AuthController {
     JsonNode verify(@Valid @RequestBody VerifyRequest request) {
         ensureConfigured();
         return auth.post().uri("/verify")
-                .body(Map.of("email", request.email().trim().toLowerCase(), "token", request.codigo(), "type", "signup"))
+                .body(Objects.requireNonNull(Map.of(
+                        "email", request.email().trim().toLowerCase(),
+                        "token", request.codigo(),
+                        "type", "signup")))
                 .retrieve().body(JsonNode.class);
     }
 
@@ -79,7 +86,9 @@ public class AuthController {
         ensureConfigured();
         String email = request.email().trim().toLowerCase();
         enforceResendLimit(email);
-        auth.post().uri("/resend").body(Map.of("email", email, "type", "signup")).retrieve().toBodilessEntity();
+        auth.post().uri("/resend")
+                .body(Objects.requireNonNull(Map.of("email", email, "type", "signup")))
+                .retrieve().toBodilessEntity();
         return ResponseEntity.noContent().build();
     }
 
@@ -88,7 +97,8 @@ public class AuthController {
         ensureConfigured();
         URI uri = URI.create(supabaseUrl + "/auth/v1/recover?redirect_to=" +
                 java.net.URLEncoder.encode(passwordRecoveryUrl, java.nio.charset.StandardCharsets.UTF_8));
-        auth.post().uri(uri).body(Map.of("email", request.email().trim().toLowerCase()))
+        auth.post().uri(Objects.requireNonNull(uri))
+                .body(Objects.requireNonNull(Map.of("email", request.email().trim().toLowerCase())))
                 .retrieve().toBodilessEntity();
         return ResponseEntity.noContent().build();
     }
