@@ -481,7 +481,20 @@ main > header select { width: auto; min-width: 150px; }
 .itens .feito { color: var(--txt-fraco); text-decoration: line-through; }
 .sem-itens { color: var(--txt-fraco); font-size: .85rem; padding: 8px 10px; }
 .observacoes { color: var(--txt-suave); font-size: .86rem; background: var(--sup-3); padding: 10px 12px; border-radius: var(--raio-sm); }
+.checklist-detalhes { display: grid; grid-template-columns: minmax(180px, .45fr) 1fr; gap: 13px; align-items: start; }
+.checklist-detalhes textarea { resize: vertical; min-height: 82px; }
 .checklist-acoes { display: flex; gap: 8px; flex-wrap: wrap; }
+.itens-criacao {
+  border: 1px solid var(--borda); border-radius: var(--raio-sm); padding: 10px;
+  display: grid; gap: 2px;
+}
+.itens-criacao legend { padding: 0 6px; color: var(--txt-suave); font-size: .82rem; font-weight: 650; }
+.itens-criacao label {
+  display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: var(--raio-sm);
+  cursor: pointer; font-size: .86rem; transition: background var(--transicao);
+}
+.itens-criacao label:hover { background: var(--sup-3); }
+@media (max-width: 620px) { .checklist-detalhes { grid-template-columns: 1fr; } }
 
 /* =========================================================
    Kanban

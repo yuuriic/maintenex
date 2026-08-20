@@ -161,11 +161,14 @@ create table if not exists checklists (
   status status_checklist not null default 'pendente',
   titulo text not null,
   responsavel_id uuid references profiles(id) on delete set null,
+  tecnico_nome text,
   data_prevista date not null default current_date,
   data_conclusao timestamptz,
   observacoes text,
   criado_em timestamptz not null default now()
 );
+
+alter table checklists add column if not exists tecnico_nome text;
 
 create table if not exists checklist_itens (
   id uuid primary key default gen_random_uuid(),
@@ -678,13 +681,25 @@ begin
   insert into checklist_itens (empresa_id, checklist_id, descricao, concluido, ordem)
   select emp, cl.id, i.descricao, cl.status = 'concluido', i.ordem
   from checklists cl
-  cross join (values
-    ('Verificar contador de páginas', 1),
-    ('Limpar vidro e ADF', 2),
-    ('Conferir nível de suprimentos', 3),
-    ('Testar impressão de página de teste', 4),
-    ('Registrar ocorrências', 5)
-  ) as i(descricao, ordem)
+  cross join lateral (
+    select * from (values
+      ('Verificar contador de páginas', 1),
+      ('Limpar vidro e ADF', 2),
+      ('Conferir nível de suprimentos', 3),
+      ('Testar impressão de página de teste', 4),
+      ('Registrar ocorrências', 5)
+    ) as preventiva(descricao, ordem)
+    where cl.tipo = 'preventiva'
+    union all
+    select * from (values
+      ('Identificar e registrar a falha', 1),
+      ('Diagnosticar a causa do problema', 2),
+      ('Executar o reparo ou a substituição necessária', 3),
+      ('Testar o funcionamento após o reparo', 4),
+      ('Registrar peças utilizadas e recomendações', 5)
+    ) as corretiva(descricao, ordem)
+    where cl.tipo = 'corretiva'
+  ) as i
   where cl.empresa_id = emp
     and not exists (select 1 from checklist_itens ci where ci.checklist_id = cl.id);
 

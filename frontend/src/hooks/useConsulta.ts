@@ -26,5 +26,5 @@ export function useConsulta<T>(consulta: () => Promise<T>, deps: unknown[]) {
 
   useEffect(() => { void recarregar() }, [recarregar])
 
-  return { dados, carregando, erro, recarregar }
+  return { dados, setDados, carregando, erro, recarregar }
 }

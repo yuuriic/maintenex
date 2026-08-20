@@ -42,7 +42,7 @@ export interface Equipamento {
 
 export interface Checklist {
   id: string; empresa_id: string; equipamento_id: string; tipo: TipoChecklist; status: StatusChecklist; titulo: string
-  responsavel_id: string | null; data_prevista: string; data_conclusao: string | null
+  responsavel_id: string | null; tecnico_nome: string | null; data_prevista: string; data_conclusao: string | null
   observacoes: string | null; criado_em: string
   equipamentos?: Pick<Equipamento, 'id' | 'codigo' | 'nome' | 'cidade_id'> | null
   checklist_itens?: ChecklistItem[]
