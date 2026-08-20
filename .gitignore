@@ -9,3 +9,10 @@ dist/
 **/.env.*
 !**/.env.example
 *.log
+
+# Artefatos Python das ferramentas auxiliares não fazem parte da aplicação.
+.claude/**/*.py
+.claude/**/*.pyc
+.claude/**/__pycache__/
+.claude/**/.coverage
+.claude/**/requirements.txt

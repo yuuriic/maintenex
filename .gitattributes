@@ -1,0 +1,3 @@
+# Ferramentas auxiliares de agentes não fazem parte da aplicação Maintenex.
+# Exclui seus scripts e assets das estatísticas de linguagem do GitHub Linguist.
+.claude/** linguist-vendored
