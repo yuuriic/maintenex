@@ -1,6 +1,8 @@
 spring:
   application:
     name: maintenex-api
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/maintenex}
     username: ${DATABASE_USER:maintenex}
@@ -17,7 +19,7 @@ server:
 
 maintenex:
   cors-origin: ${CORS_ORIGIN:http://localhost:5173}
-  jwt-secret: ${JWT_SECRET:troque-este-segredo-antes-de-publicar}
+  site-url: ${SITE_URL:http://localhost:5173}
   supabase:
     url: ${SUPABASE_URL:}
     publishable-key: ${SUPABASE_PUBLISHABLE_KEY:}

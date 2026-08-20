@@ -11,12 +11,16 @@
 do $$
 declare
   -- >>> e-mail do administrador da plataforma <<<
-  email_admin constant text := 'admin.tenex@maintenex.com.br';
+  email_admin constant text := 'ALTERE_PARA_EMAIL_ADMIN';
 
   qtd_empresas integer;
   qtd_usuarios integer;
   promovidos integer;
 begin
+  if email_admin = 'ALTERE_PARA_EMAIL_ADMIN' then
+    raise exception 'Defina email_admin antes de executar este script administrativo.';
+  end if;
+
   -- --- 1. limpeza dos dados de teste -------------------------------------
   with alvos as (
     select distinct p.empresa_id

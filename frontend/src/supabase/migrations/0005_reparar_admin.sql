@@ -10,13 +10,17 @@
 
 do $$
 declare
-  email_admin constant text := 'admin.tenex@maintenex.com.br';
+  email_admin constant text := 'ALTERE_PARA_EMAIL_ADMIN';
   id_admin    uuid;
   senha_nova  text;
   coluna      text;
   corrigidas  text[] := '{}';
   valor       text;
 begin
+  if email_admin = 'ALTERE_PARA_EMAIL_ADMIN' then
+    raise exception 'Defina email_admin antes de executar este script administrativo.';
+  end if;
+
   select id into id_admin from auth.users where lower(email) = lower(email_admin);
   if id_admin is null then
     raise exception 'conta % não existe — rode 0004_criar_super_admin.sql antes', email_admin;

@@ -79,12 +79,21 @@ create table if not exists profiles (
   empresa_id uuid references empresas(id) on delete cascade,
   nome text not null default '',
   email text not null default '',
+  telefone text,
+  email_verificado boolean not null default false,
   papel papel_usuario not null default 'tecnico',
   cidade_id uuid,
   avatar_url text,
   ativo boolean not null default true,
   criado_em timestamptz not null default now()
 );
+
+-- Mantém instalações existentes alinhadas com as migrations incrementais.
+alter table profiles
+  add column if not exists telefone text,
+  add column if not exists email_verificado boolean not null default false;
+
+create index if not exists idx_profiles_telefone on profiles (telefone);
 
 create table if not exists convites (
   id uuid primary key default gen_random_uuid(),
@@ -360,9 +369,16 @@ begin
   end if;
 
   -- o próprio usuário nunca altera papel nem empresa
-  if new.id = auth.uid()
-     and (new.papel is distinct from old.papel or new.empresa_id is distinct from old.empresa_id) then
-    raise exception 'Você não pode alterar o próprio papel ou a própria empresa.';
+  if new.id = auth.uid() and (
+     new.papel is distinct from old.papel
+     or new.empresa_id is distinct from old.empresa_id
+     or new.ativo is distinct from old.ativo
+     or new.email is distinct from old.email
+     or new.telefone is distinct from old.telefone
+     or new.email_verificado is distinct from old.email_verificado
+     or new.criado_em is distinct from old.criado_em
+  ) then
+    raise exception 'Você não pode alterar campos protegidos do próprio perfil.';
   end if;
 
   -- somente super_admin concede super_admin
@@ -427,7 +443,10 @@ create trigger on_convite_write
 -- Usuário desativado perde acesso de escrita e leitura (helpers retornam nulo/false).
 create or replace function public.empresa_atual()
 returns uuid language sql stable security definer set search_path = public as $$
-  select empresa_id from profiles where id = auth.uid() and ativo
+  select p.empresa_id
+  from profiles p
+  join empresas e on e.id = p.empresa_id
+  where p.id = auth.uid() and p.ativo and e.status = 'ativa'
 $$;
 
 create or replace function public.eh_super_admin()
@@ -456,6 +475,24 @@ $$;
 revoke all on all tables in schema public from anon;
 revoke all on all functions in schema public from anon;
 revoke all on all sequences in schema public from anon;
+
+-- Funções de trigger não são endpoints RPC públicos.
+revoke all on function public.handle_new_user() from public, anon, authenticated;
+revoke all on function public.aplicar_movimentacao() from public, anon, authenticated;
+revoke all on function public.proteger_papel() from public, anon, authenticated;
+revoke all on function public.proteger_convite() from public, anon, authenticated;
+
+-- Helpers das políticas podem ser chamados apenas pela sessão autenticada.
+revoke all on function public.empresa_atual() from public, anon;
+revoke all on function public.eh_super_admin() from public, anon;
+revoke all on function public.pode_administrar_empresa() from public, anon;
+revoke all on function public.pode_gerir_cadastro() from public, anon;
+revoke all on function public.pode_operar() from public, anon;
+grant execute on function public.empresa_atual() to authenticated;
+grant execute on function public.eh_super_admin() to authenticated;
+grant execute on function public.pode_administrar_empresa() to authenticated;
+grant execute on function public.pode_gerir_cadastro() to authenticated;
+grant execute on function public.pode_operar() to authenticated;
 
 -- --- Cadastros: leitura para a empresa, escrita para gestor+ --------------
 do $$

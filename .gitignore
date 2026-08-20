@@ -4,5 +4,8 @@ target/
 node_modules/
 **/.m2/
 dist/
-.env
+# Segredos e overrides locais (templates continuam versionados).
+**/.env
+**/.env.*
+!**/.env.example
 *.log

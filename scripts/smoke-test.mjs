@@ -4,7 +4,7 @@
  * Cria contas descartáveis via sub-endereçamento (+qa) do EMAIL_BASE.
  * Remova-as pelo painel (Authentication → Users) quando terminar.
  *
- *   EMAIL_BASE=admin.tenex@maintenex.com.br node scripts/smoke-test.mjs
+ *   EMAIL_BASE=seu-email@dominio.com.br node scripts/smoke-test.mjs
  *
  * Lê frontend/.env. Cria duas empresas de teste com usuários próprios e valida:
  *   1. auto-cadastro cria empresa + owner

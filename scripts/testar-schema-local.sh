@@ -10,7 +10,7 @@ cd "$RAIZ"
 docker compose up -d database >/dev/null
 until docker exec "$CONTAINER" pg_isready -U maintenex -d maintenex >/dev/null 2>&1; do sleep 2; done
 
-for arquivo in supabase/testes/auth-stub.sql supabase/setup-completo.sql supabase/testes/rls.sql; do
+for arquivo in frontend/src/supabase/testes/auth-stub.sql frontend/src/supabase/setup-completo.sql frontend/src/supabase/testes/rls.sql; do
   docker cp "$arquivo" "$CONTAINER:/tmp/$(basename "$arquivo")" >/dev/null
 done
 

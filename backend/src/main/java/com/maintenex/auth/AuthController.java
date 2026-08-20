@@ -33,13 +33,16 @@ public class AuthController {
 
     private final RestClient auth;
     private final String supabaseUrl;
+    private final String passwordRecoveryUrl;
     private final Map<String, ResendState> resendStates = new ConcurrentHashMap<>();
 
     public AuthController(
             RestClient.Builder builder,
             @Value("${maintenex.supabase.url}") String supabaseUrl,
-            @Value("${maintenex.supabase.publishable-key}") String publishableKey) {
+            @Value("${maintenex.supabase.publishable-key}") String publishableKey,
+            @Value("${maintenex.site-url}") String siteUrl) {
         this.supabaseUrl = supabaseUrl.replaceAll("/+$", "");
+        this.passwordRecoveryUrl = siteUrl.replaceAll("/+$", "") + "/redefinir-senha";
         this.auth = builder
                 .baseUrl(this.supabaseUrl + "/auth/v1")
                 .defaultHeader("apikey", publishableKey)
@@ -84,7 +87,7 @@ public class AuthController {
     ResponseEntity<Void> recover(@Valid @RequestBody RecoverRequest request) {
         ensureConfigured();
         URI uri = URI.create(supabaseUrl + "/auth/v1/recover?redirect_to=" +
-                java.net.URLEncoder.encode(request.redirectTo(), java.nio.charset.StandardCharsets.UTF_8));
+                java.net.URLEncoder.encode(passwordRecoveryUrl, java.nio.charset.StandardCharsets.UTF_8));
         auth.post().uri(uri).body(Map.of("email", request.email().trim().toLowerCase()))
                 .retrieve().toBodilessEntity();
         return ResponseEntity.noContent().build();
@@ -120,7 +123,10 @@ public class AuthController {
 
     @ExceptionHandler(RestClientResponseException.class)
     ResponseEntity<String> upstreamError(RestClientResponseException error) {
-        return ResponseEntity.status(error.getStatusCode()).body(error.getResponseBodyAsString());
+        HttpStatus status = error.getStatusCode().is4xxClientError()
+                ? HttpStatus.valueOf(error.getStatusCode().value())
+                : HttpStatus.BAD_GATEWAY;
+        return ResponseEntity.status(status).body("Não foi possível concluir a solicitação de autenticação.");
     }
 
     record SignupRequest(
@@ -133,6 +139,6 @@ public class AuthController {
 
     record VerifyRequest(@NotBlank @Email String email, @NotBlank @Pattern(regexp = "^\\d{6,8}$") String codigo) {}
     record EmailRequest(@NotBlank @Email String email) {}
-    record RecoverRequest(@NotBlank @Email String email, @NotBlank String redirectTo) {}
+    record RecoverRequest(@NotBlank @Email String email) {}
     record ResendState(Instant windowStart, Instant lastSent, int attempts) {}
 }

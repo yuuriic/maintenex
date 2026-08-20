@@ -15,7 +15,7 @@ do $$
 declare
   senha_escolhida constant text := '';   -- deixe vazio para gerar automaticamente
 
-  email_admin constant text := 'admin.tenex@maintenex.com.br';
+  email_admin constant text := 'ALTERE_PARA_EMAIL_ADMIN';
   nome_admin  constant text := 'Administrador Maintenex';
 
   senha       text;
@@ -23,6 +23,10 @@ declare
   ja_existia  boolean := false;
   coluna      text;
 begin
+  if email_admin = 'ALTERE_PARA_EMAIL_ADMIN' then
+    raise exception 'Defina email_admin antes de executar este script administrativo.';
+  end if;
+
   -- senha gerada: 18 caracteres de um alfabeto sem ambiguidade visual
   if length(coalesce(senha_escolhida, '')) >= 8 then
     senha := senha_escolhida;

@@ -108,4 +108,20 @@ set role authenticated;
 set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
 select '10. usuario desativado' as teste, count(*) as equipamentos_visiveis,
        case when count(*) = 0 then 'OK' else 'FALHOU' end as resultado from equipamentos;
+
+-- ============================================================
+-- 11. Usuário desativado não pode reativar o próprio perfil
+-- ============================================================
+update profiles set ativo = true
+where id = '33333333-3333-3333-3333-333333333333';
+
+-- ============================================================
+-- 12. Empresa suspensa perde acesso operacional
+-- ============================================================
+reset role;
+update empresas set status = 'suspensa' where slug = 'beta-servicos';
+set role authenticated;
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+select '12. empresa suspensa' as teste, count(*) as empresas_visiveis,
+       case when count(*) = 0 then 'OK' else 'FALHOU' end as resultado from empresas;
 reset role;
