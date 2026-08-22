@@ -1,4 +1,4 @@
-import {
+﻿import {
   createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode,
 } from 'react'
 import { useLocation } from 'react-router-dom'
@@ -9,7 +9,7 @@ import type { Cidade, PapelUsuario, Setor } from './types'
 type Tema = 'claro' | 'escuro'
 
 interface AppState {
-  /** Empresa do usuário logado — obrigatória em todo insert (RLS filtra por ela). */
+  /** Empresa do usuÃ¡rio logado â€” obrigatÃ³ria em todo insert (RLS filtra por ela). */
   empresaId: string | null
   papel: PapelUsuario | null
   ehSuperAdmin: boolean
@@ -42,13 +42,13 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [cidadeId, setCidadeIdEstado] = useState<string | null>(() => localStorage.getItem(CHAVE_CIDADE))
   const [setorId, setSetorId] = useState<string | null>(null)
 
-  // A landing pública tem identidade visual própria (sempre clara) — não usa nem grava
-  // a preferência de tema do painel logado, para o toggle interno não vazar pra fora.
-  const naLandingPublica = location.pathname === '/'
+  // As landings pÃºblicas tÃªm identidade visual prÃ³pria â€” nÃ£o usam nem gravam
+  // a preferÃªncia de tema do painel logado, para o toggle interno nÃ£o vazar pra fora.
+  const naLandingPublica = location.pathname === '/' || location.pathname === '/landing-teste'
 
   useEffect(() => {
     if (naLandingPublica) {
-      document.documentElement.dataset.tema = 'claro'
+      document.documentElement.dataset.tema = location.pathname === '/landing-teste' ? 'escuro' : 'claro'
       return
     }
     document.documentElement.dataset.tema = tema
@@ -80,8 +80,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const valor = useMemo<AppState>(() => ({
-    // Super admins não pertencem a uma empresa. Para operações no painel,
-    // a empresa efetiva é a dona da cidade selecionada no escopo global.
+    // Super admins nÃ£o pertencem a uma empresa. Para operaÃ§Ãµes no painel,
+    // a empresa efetiva Ã© a dona da cidade selecionada no escopo global.
     empresaId: profile?.empresa_id ?? cidades.find((c) => c.id === cidadeId)?.empresa_id ?? null,
     papel: profile?.papel ?? null,
     ehSuperAdmin: profile?.papel === 'super_admin',
@@ -106,3 +106,4 @@ export function useApp() {
   if (!ctx) throw new Error('useApp precisa estar dentro de <AppStateProvider>')
   return ctx
 }
+

@@ -5,6 +5,8 @@ import { supabase } from '../lib/supabase'
 import { aplicarSeo } from '../lib/seo'
 import Aurora from '../components/ui/aurora'
 import PasswordStrength, { senhaAtendeRequisitos } from '../components/ui/password-strength'
+import BrandMark from '../components/ui/brand-mark'
+import { traduzErroAuth } from '../lib/auth-errors'
 
 const destaques = [
   ['Senha protegida', 'Use uma combinação única e difícil de adivinhar.'],
@@ -30,11 +32,7 @@ export default function RedefinirSenhaPage() {
 
     const parametros = new URLSearchParams(`${window.location.search}&${window.location.hash.slice(1)}`)
     const erroLink = parametros.get('error_description')
-    if (erroLink) {
-      setErro(erroLink.includes('expired')
-        ? 'Este link expirou ou já foi utilizado. Solicite um novo link de recuperação.'
-        : erroLink.replaceAll('+', ' '))
-    }
+    if (erroLink) setErro(traduzErroAuth(erroLink.replaceAll('+', ' ')))
   }, [])
 
   async function salvar(evento: SubmitEvent<HTMLFormElement>) {
@@ -61,7 +59,7 @@ export default function RedefinirSenhaPage() {
 
     const { error } = await supabase.auth.updateUser({ password: senha })
     if (error) {
-      setErro(error.message)
+      setErro(traduzErroAuth(error.message))
       setEnviando(false)
       return
     }
@@ -86,7 +84,7 @@ export default function RedefinirSenhaPage() {
         </div>
         <div className="login-hero-conteudo">
           <div className="login-brand">
-            <div className="brand-mark lg">M</div>
+            <BrandMark size="lg" />
             <div><b>Maintenex</b><small>Gestão de manutenção</small></div>
           </div>
           <div className="login-hero-meio">

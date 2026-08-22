@@ -7,6 +7,7 @@ import { CommandPalette } from './CommandPalette'
 import { useApp } from '../lib/app-state'
 import { useAuth } from '../auth/AuthProvider'
 import { aplicarSeo } from '../lib/seo'
+import BrandMark from './ui/brand-mark'
 
 export default function Layout() {
   const { tema, alternarTema, cidades, setores, cidadeId, setorId, setCidadeId, setSetorId, ehSuperAdmin } = useApp()
@@ -45,7 +46,7 @@ export default function Layout() {
           )}
         </button>
         <div className="brand">
-          <div className="brand-mark">M</div>
+          <BrandMark />
           <div className="brand-texto">
             <b>Maintenex</b>
             <small>{profile?.empresas?.nome ?? 'Gestão de manutenção'}</small>
@@ -96,7 +97,7 @@ export default function Layout() {
           </select>
 
           <div className="perfil">
-            <div className="profile" title={profile?.email}>{iniciais}</div>
+            <div className="profile">{iniciais}</div>
             <div className="perfil-texto">
               <b>{profile?.nome ?? 'Usuário'}</b>
               <small>{profile?.papel ?? '—'}</small>

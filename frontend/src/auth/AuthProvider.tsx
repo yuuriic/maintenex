@@ -3,6 +3,7 @@ import type { Session, User } from '@supabase/supabase-js'
 import { supabase, supabaseConfigurado } from '../lib/supabase'
 import type { Profile } from '../lib/types'
 import { authApiConfigurada, chamarAuth } from '../lib/auth-api'
+import { traduzErroAuth } from '../lib/auth-errors'
 
 interface AuthContextValue {
   session: Session | null
@@ -88,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async entrar(email, senha) {
       const { error } = await supabase.auth.signInWithPassword({ email, password: senha })
-      if (error) throw new Error(traduzErro(error.message))
+      if (error) throw new Error(traduzErroAuth(error.message))
     },
 
     async cadastrar({ nome, email, senha, telefone, empresa }) {
@@ -101,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password: senha,
         options: { data: { nome, telefone, ...(empresa ? { empresa_nome: empresa } : {}) } },
       })
-      if (error) throw new Error(traduzErro(error.message))
+      if (error) throw new Error(traduzErroAuth(error.message))
       if (data.user?.identities?.length === 0) {
         throw new Error('Este e-mail já está cadastrado.')
       }
@@ -112,11 +113,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (authApiConfigurada) {
         const data = await chamarAuth<{ access_token: string; refresh_token: string }>('verify', { email, codigo })
         const { error } = await supabase.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token })
-        if (error) throw new Error(traduzErro(error.message))
+        if (error) throw new Error(traduzErroAuth(error.message))
         return
       }
       const { error } = await supabase.auth.verifyOtp({ email, token: codigo, type: 'signup' })
-      if (error) throw new Error(traduzErro(error.message))
+      if (error) throw new Error(traduzErroAuth(error.message))
     },
 
     async reenviarCodigoCadastro(email) {
@@ -125,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
       const { error } = await supabase.auth.resend({ type: 'signup', email })
-      if (error) throw new Error(traduzErro(error.message))
+      if (error) throw new Error(traduzErroAuth(error.message))
     },
 
     async recuperarSenha(email) {
@@ -137,7 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${siteUrl}/redefinir-senha`,
       })
-      if (error) throw new Error(traduzErro(error.message))
+      if (error) throw new Error(traduzErroAuth(error.message))
     },
 
     async sair() {
@@ -162,19 +163,4 @@ export function useAuth() {
   const ctx = useContext(AuthContext)
   if (!ctx) throw new Error('useAuth precisa estar dentro de <AuthProvider>')
   return ctx
-}
-
-function traduzErro(mensagem: string) {
-  const mapa: Record<string, string> = {
-    'Invalid login credentials': 'E-mail ou senha incorretos.',
-    'Email not confirmed': 'Confirme seu e-mail antes de entrar.',
-    'User already registered': 'Este e-mail já está cadastrado.',
-    'Password should be at least 6 characters': 'A senha precisa ter ao menos 6 caracteres.',
-    'Unable to validate email address: invalid format': 'Formato de e-mail inválido.',
-    'Token has expired or is invalid': 'O código é inválido ou expirou.',
-    'Email rate limit exceeded': 'Muitas tentativas. Aguarde alguns minutos antes de reenviar.',
-    'For security purposes, you can only request this after': 'Aguarde antes de solicitar um novo código.',
-  }
-  const correspondencia = Object.entries(mapa).find(([texto]) => mensagem.startsWith(texto))
-  return correspondencia?.[1] ?? mensagem
 }

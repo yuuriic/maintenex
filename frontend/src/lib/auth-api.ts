@@ -1,3 +1,5 @@
+import { traduzErroAuth } from './auth-errors'
+
 const apiUrl = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '')
 
 export const authApiConfigurada = Boolean(apiUrl)
@@ -15,7 +17,7 @@ export async function chamarAuth<T>(caminho: string, corpo: unknown): Promise<T>
       const json = JSON.parse(texto)
       mensagem = json.msg ?? json.message ?? json.error_description ?? mensagem
     } catch { /* resposta sem JSON */ }
-    throw new Error(mensagem)
+    throw new Error(traduzErroAuth(mensagem))
   }
   return (texto ? JSON.parse(texto) : undefined) as T
 }

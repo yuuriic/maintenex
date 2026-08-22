@@ -8,6 +8,8 @@ import { useToast } from '../components/Toast'
 import Aurora from '../components/ui/aurora'
 import PasswordStrength, { senhaAtendeRequisitos } from '../components/ui/password-strength'
 import OtpInput from '../components/ui/otp-input'
+import BrandMark from '../components/ui/brand-mark'
+import { traduzErroAuth } from '../lib/auth-errors'
 
 type Modo = 'entrar' | 'cadastrar' | 'confirmar' | 'recuperar'
 type ErrosCampos = Partial<Record<'nome' | 'email' | 'telefone' | 'senha' | 'confirmacao' | 'codigo', string>>
@@ -21,6 +23,13 @@ function normalizarTelefone(valor: string) {
   if (temMais && digitos.length >= 10 && digitos.length <= 15) return `+${digitos}`
   if (digitos.length === 10 || digitos.length === 11) return `+55${digitos}`
   return null
+}
+
+function mascararEmail(valor: string) {
+  const [usuario, dominio] = valor.trim().split('@')
+  if (!usuario || !dominio) return 'seu e-mail'
+  const inicio = usuario.slice(0, Math.min(2, usuario.length))
+  return `${inicio}${'•'.repeat(Math.max(3, usuario.length - inicio.length))}@${dominio}`
 }
 
 const destaques = [
@@ -116,7 +125,7 @@ export default function LoginPage() {
         setModo('entrar')
       }
     } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Falha inesperada.')
+      setErro(traduzErroAuth(e instanceof Error ? e.message : null))
     } finally {
       setEnviando(false)
     }
@@ -133,7 +142,7 @@ export default function LoginPage() {
       setAgora(Date.now())
       toast.sucesso('Novo código enviado.')
     } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Não foi possível reenviar o código.')
+      setErro(traduzErroAuth(e instanceof Error ? e.message : null))
     } finally {
       setEnviando(false)
     }
@@ -150,7 +159,7 @@ export default function LoginPage() {
         </div>
         <div className="login-hero-conteudo">
           <div className="login-brand">
-            <div className="brand-mark lg">M</div>
+            <BrandMark size="lg" />
             <div><b>Maintenex</b><small>Gestão de manutenção</small></div>
           </div>
           <div className="login-hero-meio">
@@ -194,7 +203,7 @@ export default function LoginPage() {
           </h2>
           <p className="login-sub">
             {modo === 'confirmar'
-              ? `Digite o código enviado para ${email}.`
+              ? `Digite o código enviado para ${mascararEmail(email)}.`
               : modo === 'recuperar'
               ? 'Informe o e-mail cadastrado e enviaremos um link de redefinição.'
               : 'Use seu e-mail corporativo para acessar o painel.'}
@@ -202,8 +211,7 @@ export default function LoginPage() {
 
           {!supabaseConfigurado && (
             <div className="alerta aviso">
-              Supabase não configurado. Preencha <code>VITE_SUPABASE_URL</code> e{' '}
-              <code>VITE_SUPABASE_ANON_KEY</code> em <code>frontend/.env</code>.
+              Autenticação temporariamente indisponível. Revise a configuração do ambiente antes de continuar.
             </div>
           )}
 

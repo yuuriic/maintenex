@@ -1,10 +1,11 @@
-import { Suspense, lazy } from 'react'
+import { Suspense, lazy, useState, useEffect } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import Landing from './pages/Landing'
 import LoginPage from './auth/LoginPage'
 import RedefinirSenhaPage from './auth/RedefinirSenhaPage'
 import RotaProtegida from './auth/RotaProtegida'
+import Preloader from './components/ui/preloader'
 
 const Layout = lazy(() => import('./components/Layout'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
@@ -34,30 +35,54 @@ function Carregando() {
 }
 
 export default function App() {
+  const [showPreloader, setShowPreloader] = useState(() => {
+    // Mostrar preloader apenas uma vez por sessão
+    const preloaderShown = sessionStorage.getItem('preloaderShown')
+    return !preloaderShown
+  })
+
+  useEffect(() => {
+    if (showPreloader) {
+      // Bloquear scroll durante o preloader
+      document.body.style.overflow = 'hidden'
+    }
+  }, [showPreloader])
+
+  const handlePreloaderComplete = () => {
+    sessionStorage.setItem('preloaderShown', 'true')
+    setShowPreloader(false)
+    document.body.style.overflow = ''
+  }
+
   return (
-    <Suspense fallback={<Carregando />}>
-      <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/redefinir-senha" element={<RedefinirSenhaPage />} />
+    <>
+      {showPreloader && <Preloader onComplete={handlePreloaderComplete} />}
+      <div>
+        <Suspense fallback={<Carregando />}>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/redefinir-senha" element={<RedefinirSenhaPage />} />
 
-        <Route path="/app" element={<RotaProtegida><Layout /></RotaProtegida>}>
-          <Route index element={<Dashboard />} />
-          <Route path="checklist" element={<Checklist />} />
-          <Route path="equipamentos" element={<Equipamentos />} />
-          <Route path="estoque" element={<Estoque />} />
-          <Route path="pendencias" element={<Pendencias />} />
-          <Route path="relatorios" element={<Relatorios />} />
-          <Route path="configuracoes" element={<Configuracoes />} />
-          <Route path="empresas" element={<Empresas />} />
-        </Route>
+            <Route path="/app" element={<RotaProtegida><Layout /></RotaProtegida>}>
+              <Route index element={<Dashboard />} />
+              <Route path="checklist" element={<Checklist />} />
+              <Route path="equipamentos" element={<Equipamentos />} />
+              <Route path="estoque" element={<Estoque />} />
+              <Route path="pendencias" element={<Pendencias />} />
+              <Route path="relatorios" element={<Relatorios />} />
+              <Route path="configuracoes" element={<Configuracoes />} />
+              <Route path="empresas" element={<Empresas />} />
+            </Route>
 
-        {Object.entries(rotasLegadas).map(([antiga, nova]) => (
-          <Route key={antiga} path={antiga} element={<Navigate to={nova} replace />} />
-        ))}
+            {Object.entries(rotasLegadas).map(([antiga, nova]) => (
+              <Route key={antiga} path={antiga} element={<Navigate to={nova} replace />} />
+            ))}
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Suspense>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
+      </div>
+    </>
   )
 }
