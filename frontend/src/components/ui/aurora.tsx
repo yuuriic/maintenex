@@ -1,3 +1,5 @@
+
+
 import { useEffect, useRef } from 'react'
 import { Color, Mesh, Program, Renderer, Triangle } from 'ogl'
 import './aurora.css'

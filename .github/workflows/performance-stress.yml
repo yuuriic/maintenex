@@ -1,0 +1,22 @@
+name: Performance - Stress Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  stress-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run stress test
+        uses: grafana/run-k6-action@v1
+        env:
+          BASE_URL: ${{ secrets.STAGING_URL }}
+        with:
+          path: tests/load/stress.js
