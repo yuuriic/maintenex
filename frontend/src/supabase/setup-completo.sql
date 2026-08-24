@@ -95,6 +95,42 @@ alter table profiles
 
 create index if not exists idx_profiles_telefone on profiles (telefone);
 
+-- =========================================================
+-- Sincronização Supabase Auth → profiles
+-- =========================================================
+-- Espelha telefone e email_verificado de auth.users para profiles.
+-- O Supabase Auth permanece sendo a fonte de verdade.
+create or replace function public.sincronizar_verificacao_usuario()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.profiles
+  set telefone = nullif(trim(new.raw_user_meta_data->>'telefone'), ''),
+      email_verificado = new.email_confirmed_at is not null
+  where id = new.id;
+  return new;
+end;
+$$;
+
+revoke all on function public.sincronizar_verificacao_usuario() from public, anon, authenticated;
+
+drop trigger if exists z_sync_auth_user_verification on auth.users;
+create trigger z_sync_auth_user_verification
+  after insert or update of email_confirmed_at, raw_user_meta_data on auth.users
+  for each row execute function public.sincronizar_verificacao_usuario();
+
+-- Sincroniza cadastros existentes quando o script for executado pela primeira vez.
+update public.profiles p
+set telefone = nullif(trim(u.raw_user_meta_data->>'telefone'), ''),
+    email_verificado = u.email_confirmed_at is not null
+from auth.users u
+where u.id = p.id
+  and (p.telefone is distinct from nullif(trim(u.raw_user_meta_data->>'telefone'), '')
+       or p.email_verificado is distinct from (u.email_confirmed_at is not null));
+
 create table if not exists convites (
   id uuid primary key default gen_random_uuid(),
   empresa_id uuid not null references empresas(id) on delete cascade,
@@ -487,6 +523,7 @@ revoke all on function public.handle_new_user() from public, anon, authenticated
 revoke all on function public.aplicar_movimentacao() from public, anon, authenticated;
 revoke all on function public.proteger_papel() from public, anon, authenticated;
 revoke all on function public.proteger_convite() from public, anon, authenticated;
+revoke all on function public.sincronizar_verificacao_usuario() from public, anon, authenticated;
 
 -- Helpers das políticas podem ser chamados apenas pela sessão autenticada.
 revoke all on function public.empresa_atual() from public, anon;
