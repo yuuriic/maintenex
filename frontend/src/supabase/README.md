@@ -9,7 +9,7 @@ Migrations reproduzíveis e ordenadas do schema Supabase.
 
 **Ordem de aplicação para novos ambientes:**
 1. `0001_init.sql` — schema base completo (enums, tabelas, triggers, RLS)
-2. `0002_seed.sql` — ⚠️ **seed de demonstração opcional** (ver abaixo)
+2. `0002_seed.sql` — no-op reservado para compatibilidade histórica; não insere dados
 3. `0006_verificacao_cadastro.sql` — adiciona `telefone` e `email_verificado` + trigger de sincronização com Auth
 4. `0007_restringir_funcao_verificacao.sql` — revoga execução da função de sync
 5. `0008_hardening_autorizacao.sql` — endurece `empresa_atual()`, `proteger_papel()` e revogações
@@ -50,7 +50,7 @@ Snapshot consolidado do estado final do schema.
 - Schema completo equivalente a `0001` + `0006`–`0010`
 - Trigger de sincronização `auth.users` → `profiles`
 - RLS completo e hardenings
-- Seed de demonstração ao final (opcional)
+- Conferência final do schema criado
 
 ### `testes/`
 Stubs e testes locais de RLS.
@@ -59,7 +59,7 @@ Não aplicar em ambientes reais.
 
 ---
 
-## ⚠️ Seed de Demonstração (`0002_seed.sql`)
+## ⚠️ Seed de Demonstração (`seeds/demo.sql`)
 
 **Natureza:** dados fictícios, **não** evolução de schema.
 
@@ -74,7 +74,7 @@ Não aplicar em ambientes reais.
 - Executar **manualmente** via SQL Editor apenas após criar a empresa de teste
 - Considerar como dados de demonstração opcional, não requisito de schema
 
-Para staging/production, considere criar seeds específicos e controlados separadamente.
+`migrations/0002_seed.sql` foi mantido como no-op reservado para compatibilidade com ambientes que já registraram a versão `0002`, evitando migration drift sem inserir dados demo automaticamente. Para staging/production, prefira seeds específicos e controlados separadamente.
 
 ---
 
@@ -89,18 +89,16 @@ cd frontend/src/supabase
 supabase login
 supabase link --project-ref <NEW_PROJECT_REF>
 
-# 3. Aplicar migrations (executa 0001, 0002, 0006-0010)
+# 3. Aplicar migrations de schema (executa 0001, 0002 no-op, 0006-0010)
 supabase db push
 
-# 4. (Opcional) Se não quiser seed automático, remova/renomeie 0002 antes do push
-
-# 5. Criar primeira conta owner pelo app
+# 4. Criar primeira conta owner pelo app
 # Acessar /login?modo=cadastrar e criar conta com nome da empresa
 
-# 6. (Opcional) Executar seed manualmente se quiser dados demo
-# SQL Editor: executar conteúdo de 0002_seed.sql
+# 5. (Opcional) Executar seed manualmente se quiser dados demo
+# SQL Editor: executar conteúdo de seeds/demo.sql
 
-# 7. (Opcional) Super_admin somente se necessário
+# 6. (Opcional) Super_admin somente se necessário
 # SQL Editor: editar e executar admin-scripts/0003_promover_super_admin.sql
 ```
 
@@ -112,7 +110,7 @@ supabase db push
 # 3. Copiar e colar todo o conteúdo de setup-completo.sql
 # 4. Executar
 # 5. Criar primeira conta owner pelo app
-# 6. O seed já está incluído no consolidado (executará após empresa existir)
+# 6. (Opcional) Executar seeds/demo.sql manualmente se quiser dados demo
 ```
 
 ---
@@ -228,4 +226,4 @@ Mas não substitui migrations no fluxo normal.
 Identificadas mas não implementadas ainda:
 
 - **Integridade cross-table FK:** validar que `cidade_id`, `material_id`, `equipamento_id`, `checklist_id` pertencem à mesma `empresa_id` em operações críticas
-- **Separação de seed:** considerar mover `0002_seed.sql` para estrutura de seeds separada se histórico permitir
+- **Seeds controlados por ambiente:** criar seeds específicos para staging sem dados relativos ou dependência da primeira empresa cadastrada
