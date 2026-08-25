@@ -1,5 +1,8 @@
 {
   "dependencies": {
     "motion": "^13.1.0"
+  },
+  "devDependencies": {
+    "supabase": "^2.115.0"
   }
 }

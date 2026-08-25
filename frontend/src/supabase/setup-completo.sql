@@ -543,6 +543,74 @@ grant execute on function public.pode_administrar_empresa() to authenticated;
 grant execute on function public.pode_gerir_cadastro() to authenticated;
 grant execute on function public.pode_operar() to authenticated;
 
+-- A API autenticada precisa de grants SQL para alcançar as tabelas;
+-- as políticas RLS abaixo continuam sendo a camada de isolamento.
+-- O Supabase local pode carregar default privileges amplos para objetos criados
+-- por postgres; por isso normalizamos explicitamente as tabelas da aplicação.
+grant usage on schema public to authenticated;
+
+revoke all privileges on table
+  public.empresas,
+  public.profiles,
+  public.convites,
+  public.cidades,
+  public.setores,
+  public.equipamentos,
+  public.checklists,
+  public.checklist_itens,
+  public.materiais,
+  public.estoque,
+  public.movimentacoes,
+  public.pendencias
+from anon;
+
+revoke truncate, references, trigger, maintain on table
+  public.empresas,
+  public.profiles,
+  public.convites,
+  public.cidades,
+  public.setores,
+  public.equipamentos,
+  public.checklists,
+  public.checklist_itens,
+  public.materiais,
+  public.estoque,
+  public.movimentacoes,
+  public.pendencias
+from authenticated;
+
+grant select, insert, update, delete on table
+  public.empresas,
+  public.profiles,
+  public.convites,
+  public.cidades,
+  public.setores,
+  public.equipamentos,
+  public.checklists,
+  public.checklist_itens,
+  public.materiais,
+  public.estoque,
+  public.movimentacoes,
+  public.pendencias
+to authenticated;
+
+revoke all privileges on all sequences in schema public from anon;
+revoke all privileges on all sequences in schema public from authenticated;
+grant usage, select on all sequences in schema public to authenticated;
+
+alter default privileges for role postgres in schema public
+  revoke all privileges on tables from anon;
+alter default privileges for role postgres in schema public
+  revoke truncate, references, trigger, maintain on tables from authenticated;
+alter default privileges for role postgres in schema public
+  grant select, insert, update, delete on tables to authenticated;
+alter default privileges for role postgres in schema public
+  revoke all privileges on sequences from anon;
+alter default privileges for role postgres in schema public
+  revoke all privileges on sequences from authenticated;
+alter default privileges for role postgres in schema public
+  grant usage, select on sequences to authenticated;
+
 -- --- Cadastros: leitura para a empresa, escrita para gestor+ --------------
 do $$
 declare t text;

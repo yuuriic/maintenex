@@ -15,6 +15,7 @@ Migrations reproduzíveis e ordenadas do schema Supabase.
 5. `0008_hardening_autorizacao.sql` — endurece `empresa_atual()`, `proteger_papel()` e revogações
 6. `0009_detalhes_checklist.sql` — adiciona `checklists.tecnico_nome`
 7. `0010_secoes_checklist.sql` — adiciona `checklist_itens.secao`
+8. `0011_grants_api_autenticada.sql` — normaliza grants mínimos para `authenticated`; RLS continua isolando por empresa/papel
 
 **Aplicação automática via Supabase CLI:**
 ```bash
@@ -47,7 +48,7 @@ Snapshot consolidado do estado final do schema.
 **Não deve substituir migrations incrementais** no fluxo normal de desenvolvimento.
 
 **Contém:**
-- Schema completo equivalente a `0001` + `0006`–`0010`
+- Schema completo equivalente a `0001` + `0006`–`0011`
 - Trigger de sincronização `auth.users` → `profiles`
 - RLS completo e hardenings
 - Conferência final do schema criado
@@ -55,7 +56,9 @@ Snapshot consolidado do estado final do schema.
 ### `testes/`
 Stubs e testes locais de RLS.
 
-Não aplicar em ambientes reais.
+Não aplicar em ambientes reais, exceto `testes/security-check.sql`, que é somente leitura e pode ser executado localmente após `supabase db reset` para validar RLS e grants.
+
+`testes/rls.sql` cria dados e contém grants amplos apenas para harness local isolado; não use esse arquivo em staging/produção.
 
 ---
 
@@ -89,7 +92,7 @@ cd frontend/src/supabase
 supabase login
 supabase link --project-ref <NEW_PROJECT_REF>
 
-# 3. Aplicar migrations de schema (executa 0001, 0002 no-op, 0006-0010)
+# 3. Aplicar migrations de schema (executa 0001, 0002 no-op, 0006-0011)
 supabase db push
 
 # 4. Criar primeira conta owner pelo app
@@ -131,6 +134,18 @@ supabase db push
 | `gestor` | read + write | read + write | — | self | — |
 | `owner` | read + write | read + write | own (select+update) | admin empresa | admin empresa |
 | `super_admin` | all cross-tenant | all cross-tenant | all | all | all |
+
+### Grants SQL x RLS
+
+PostgREST precisa de grants SQL para alcançar uma tabela, mas esses grants não substituem autorização por linha. No Maintenex:
+
+- `authenticated` deve ter somente `SELECT`, `INSERT`, `UPDATE` e `DELETE` nas 12 tabelas públicas da aplicação.
+- `authenticated` não deve ter `TRUNCATE`, `REFERENCES`, `TRIGGER` ou `MAINTAIN` nas tabelas da aplicação; esses privilégios não são usados pelo frontend/PostgREST atual para leitura e escrita de registros.
+- `anon` não deve ter grants em tabelas ou sequences da aplicação.
+- Toda tabela pública nova da aplicação precisa de RLS habilitada, policies definidas e grants mínimos antes de ser considerada pronta.
+- Grants SQL e policies RLS são camadas diferentes: grants permitem a tentativa de acesso; RLS decide quais linhas a sessão autenticada pode ver ou modificar.
+
+A migration `0011_grants_api_autenticada.sql` também ajusta default privileges do papel `postgres` no schema `public`, porque o Supabase local pode herdar ACLs amplas para objetos criados por esse owner. Roles internas como `service_role` e `supabase_admin` não devem ser reduzidas sem evidência específica para evitar quebrar o funcionamento interno do Supabase.
 
 ### Triggers SECURITY DEFINER
 - `handle_new_user()` — auto-cadastro de empresa ou aceite de convite
@@ -175,6 +190,35 @@ SELECT to_regprocedure('public.sincronizar_verificacao_usuario()') IS NOT NULL;
 SELECT count(*) FROM pg_policies WHERE schemaname = 'public';
 -- Esperado: > 0
 
+-- Validar grants mínimos para authenticated nas tabelas da aplicação
+SELECT table_name, privilege_type
+FROM information_schema.role_table_grants
+WHERE table_schema = 'public'
+  AND grantee = 'authenticated'
+  AND table_name IN (
+    'empresas','profiles','convites','cidades','setores',
+    'equipamentos','checklists','checklist_itens','materiais',
+    'estoque','movimentacoes','pendencias'
+  )
+ORDER BY table_name, privilege_type;
+-- Esperado por tabela: DELETE, INSERT, SELECT, UPDATE
+-- Não esperado: TRUNCATE, REFERENCES, TRIGGER, MAINTAIN
+
+-- Validar que anon não tem grants nas tabelas da aplicação
+SELECT table_name, privilege_type
+FROM information_schema.role_table_grants
+WHERE table_schema = 'public'
+  AND grantee = 'anon'
+  AND table_name IN (
+    'empresas','profiles','convites','cidades','setores',
+    'equipamentos','checklists','checklist_itens','materiais',
+    'estoque','movimentacoes','pendencias'
+  );
+-- Esperado: 0 linhas
+
+-- Validação local consolidada, sem alterar schema
+\i frontend/src/supabase/testes/security-check.sql
+
 -- Validar colunas adicionadas por migrations
 SELECT 
   EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='profiles' AND column_name='telefone'),
@@ -194,7 +238,11 @@ Antes de considerar staging pronto:
 - [ ] Trigger `z_sync_auth_user_verification` confirmado
 - [ ] Função `sincronizar_verificacao_usuario()` confirmada
 - [ ] 12 tabelas públicas validadas
-- [ ] RLS ativo em todas as tabelas
+- [ ] RLS ativo e policies presentes em todas as tabelas públicas da aplicação
+- [ ] Grants SQL mínimos para `authenticated` aplicados (`SELECT`, `INSERT`, `UPDATE`, `DELETE`)
+- [ ] Sem `TRUNCATE`, `REFERENCES`, `TRIGGER` ou `MAINTAIN` para `authenticated` nas tabelas da aplicação
+- [ ] `anon` sem grants nas tabelas/sequences da aplicação
+- [ ] `testes/security-check.sql` executado localmente após migrations
 - [ ] Conta owner de teste criada e confirmada
 - [ ] `profiles.telefone` e `profiles.email_verificado` populados
 - [ ] Empresa de teste com status `ativa`

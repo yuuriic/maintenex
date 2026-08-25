@@ -131,8 +131,6 @@ export default function () {
   let accessToken;
   let userId;
   let empresaId;
-  let cidadeId;
-  let setorId;
 
   group('frontend', () => {
     const landingTags = { endpoint: 'frontend_landing' };
@@ -162,24 +160,20 @@ export default function () {
     const profile = getJson(profileResponse, [])[0];
     empresaId = profile?.empresa_id;
 
-    const cidadesResponse = getRest(
+    getRest(
       'cidades',
       `select=${encodeURIComponent('*,empresas(id,nome)')}&order=nome.asc`,
       accessToken,
       'scope_cidades',
     );
-    const cidades = getJson(cidadesResponse, []);
-    cidadeId = cidades[0]?.id || null;
 
-    const setoresResponse = getRest('setores', 'select=*&order=nome.asc', accessToken, 'scope_setores');
-    const setores = getJson(setoresResponse, []);
-    setorId = setores.find((setor) => !cidadeId || setor.cidade_id === cidadeId)?.id || null;
+    getRest('setores', 'select=*&order=nome.asc', accessToken, 'scope_setores');
   });
 
   group('dashboard', () => {
     getRest(
       'equipamentos',
-      withFilter(`select=${encodeURIComponent('*,setores(id,nome)')}`, 'cidade_id', cidadeId),
+      `select=${encodeURIComponent('*,setores(id,nome)')}&order=codigo.asc`,
       accessToken,
       'dashboard_equipamentos',
     );
@@ -193,29 +187,23 @@ export default function () {
 
     getRest(
       'pendencias',
-      withFilter(`select=${encodeURIComponent('*,equipamentos(id,codigo,nome)')}`, 'cidade_id', cidadeId),
+      `select=${encodeURIComponent('*,equipamentos(id,codigo,nome)')}&order=aberta_em.desc`,
       accessToken,
       'dashboard_pendencias',
     );
 
     getRest(
       'movimentacoes',
-      withFilter(
-        `select=${encodeURIComponent('*,materiais(id,codigo,nome,unidade)')}&order=criado_em.desc`,
-        'cidade_id',
-        cidadeId,
-      ),
+      `select=${encodeURIComponent('*,materiais(id,codigo,nome,unidade)')}&order=criado_em.desc`,
       accessToken,
       'dashboard_movimentacoes',
     );
   });
 
   group('equipamentos', () => {
-    let query = `select=${encodeURIComponent('*,setores(id,nome)')}&order=codigo.asc`;
-    query = withFilter(query, 'cidade_id', cidadeId);
-    query = withFilter(query, 'setor_id', setorId);
+    const query = `select=${encodeURIComponent('*,setores(id,nome)')}&order=codigo.asc`;
 
-    getRest('equipamentos', query, accessToken, 'equipamentos_lista_filtrada');
+    getRest('equipamentos', query, accessToken, 'equipamentos_lista_global');
   });
 
   group('estoque', () => {
@@ -226,20 +214,11 @@ export default function () {
       'estoque_materiais',
     );
 
-    getRest(
-      'estoque',
-      withFilter(`select=${encodeURIComponent('*,materiais(*)')}`, 'cidade_id', cidadeId),
-      accessToken,
-      'estoque_saldos',
-    );
+    getRest('estoque', `select=${encodeURIComponent('*,materiais(*)')}`, accessToken, 'estoque_saldos');
 
     getRest(
       'movimentacoes',
-      withFilter(
-        `select=${encodeURIComponent('*,materiais(id,codigo,nome,unidade)')}&order=criado_em.desc&limit=25`,
-        'cidade_id',
-        cidadeId,
-      ),
+      `select=${encodeURIComponent('*,materiais(id,codigo,nome,unidade)')}&order=criado_em.desc&limit=25`,
       accessToken,
       'estoque_movimentacoes_recentes',
     );
@@ -248,18 +227,14 @@ export default function () {
   group('pendencias_alertas', () => {
     getRest(
       'equipamentos',
-      withFilter(`select=${encodeURIComponent('id,codigo,nome')}&order=codigo.asc`, 'cidade_id', cidadeId),
+      `select=${encodeURIComponent('id,codigo,nome')}&order=codigo.asc`,
       accessToken,
       'pendencias_equipamentos',
     );
 
     getRest(
       'pendencias',
-      withFilter(
-        `select=${encodeURIComponent('*,equipamentos(id,codigo,nome)')}&order=aberta_em.desc`,
-        'cidade_id',
-        cidadeId,
-      ),
+      `select=${encodeURIComponent('*,equipamentos(id,codigo,nome)')}&order=aberta_em.desc`,
       accessToken,
       'pendencias_lista',
     );
