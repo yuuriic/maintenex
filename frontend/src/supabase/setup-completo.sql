@@ -286,6 +286,192 @@ create index if not exists idx_pend_empresa on pendencias(empresa_id);
 create index if not exists idx_convites_email on convites(lower(email));
 
 -- =========================================================
+-- Integridade multi-tenant: FKs tenant-scoped incluem empresa_id.
+-- Este bloco consolida o estado das migrations até 0012.
+-- =========================================================
+alter table public.profiles drop constraint if exists profiles_cidade_id_fkey;
+alter table public.setores drop constraint if exists setores_cidade_id_fkey;
+alter table public.equipamentos drop constraint if exists equipamentos_cidade_id_fkey;
+alter table public.equipamentos drop constraint if exists equipamentos_setor_id_fkey;
+alter table public.checklists drop constraint if exists checklists_equipamento_id_fkey;
+alter table public.checklists drop constraint if exists checklists_responsavel_id_fkey;
+alter table public.checklist_itens drop constraint if exists checklist_itens_checklist_id_fkey;
+alter table public.estoque drop constraint if exists estoque_material_id_fkey;
+alter table public.estoque drop constraint if exists estoque_cidade_id_fkey;
+alter table public.movimentacoes drop constraint if exists movimentacoes_material_id_fkey;
+alter table public.movimentacoes drop constraint if exists movimentacoes_cidade_id_fkey;
+alter table public.movimentacoes drop constraint if exists movimentacoes_equipamento_id_fkey;
+alter table public.movimentacoes drop constraint if exists movimentacoes_usuario_id_fkey;
+alter table public.pendencias drop constraint if exists pendencias_cidade_id_fkey;
+alter table public.pendencias drop constraint if exists pendencias_equipamento_id_fkey;
+alter table public.pendencias drop constraint if exists pendencias_responsavel_id_fkey;
+
+alter table public.cidades drop constraint if exists cidades_id_empresa_id_key;
+alter table public.cidades
+  add constraint cidades_id_empresa_id_key unique (id, empresa_id);
+
+alter table public.setores drop constraint if exists setores_id_cidade_id_empresa_id_key;
+alter table public.setores
+  add constraint setores_id_cidade_id_empresa_id_key unique (id, cidade_id, empresa_id);
+
+alter table public.equipamentos drop constraint if exists equipamentos_id_empresa_id_key;
+alter table public.equipamentos
+  add constraint equipamentos_id_empresa_id_key unique (id, empresa_id);
+
+alter table public.checklists drop constraint if exists checklists_id_empresa_id_key;
+alter table public.checklists
+  add constraint checklists_id_empresa_id_key unique (id, empresa_id);
+
+alter table public.materiais drop constraint if exists materiais_id_empresa_id_key;
+alter table public.materiais
+  add constraint materiais_id_empresa_id_key unique (id, empresa_id);
+
+alter table public.profiles drop constraint if exists profiles_id_empresa_id_key;
+alter table public.profiles
+  add constraint profiles_id_empresa_id_key unique (id, empresa_id);
+
+alter table public.profiles drop constraint if exists profiles_empresa_null_cidade_null_chk;
+alter table public.profiles
+  add constraint profiles_empresa_null_cidade_null_chk
+  check (empresa_id is not null or cidade_id is null);
+
+create index if not exists idx_profiles_cidade_empresa
+  on public.profiles (cidade_id, empresa_id)
+  where cidade_id is not null;
+create index if not exists idx_setores_cidade_empresa
+  on public.setores (cidade_id, empresa_id);
+create index if not exists idx_equipamentos_cidade_empresa
+  on public.equipamentos (cidade_id, empresa_id);
+create index if not exists idx_equipamentos_setor_cidade_empresa
+  on public.equipamentos (setor_id, cidade_id, empresa_id)
+  where setor_id is not null;
+create index if not exists idx_checklists_equipamento_empresa
+  on public.checklists (equipamento_id, empresa_id);
+create index if not exists idx_checklists_responsavel_empresa
+  on public.checklists (responsavel_id, empresa_id)
+  where responsavel_id is not null;
+create index if not exists idx_checklist_itens_checklist_empresa
+  on public.checklist_itens (checklist_id, empresa_id);
+create index if not exists idx_estoque_material_empresa
+  on public.estoque (material_id, empresa_id);
+create index if not exists idx_estoque_cidade_empresa
+  on public.estoque (cidade_id, empresa_id);
+create index if not exists idx_movimentacoes_material_empresa
+  on public.movimentacoes (material_id, empresa_id);
+create index if not exists idx_movimentacoes_cidade_empresa
+  on public.movimentacoes (cidade_id, empresa_id);
+create index if not exists idx_movimentacoes_equipamento_empresa
+  on public.movimentacoes (equipamento_id, empresa_id)
+  where equipamento_id is not null;
+create index if not exists idx_movimentacoes_usuario_empresa
+  on public.movimentacoes (usuario_id, empresa_id)
+  where usuario_id is not null;
+create index if not exists idx_pendencias_cidade_empresa
+  on public.pendencias (cidade_id, empresa_id);
+create index if not exists idx_pendencias_equipamento_empresa
+  on public.pendencias (equipamento_id, empresa_id)
+  where equipamento_id is not null;
+create index if not exists idx_pendencias_responsavel_empresa
+  on public.pendencias (responsavel_id, empresa_id)
+  where responsavel_id is not null;
+
+alter table public.profiles
+  add constraint profiles_cidade_id_fkey
+  foreign key (cidade_id, empresa_id)
+  references public.cidades (id, empresa_id)
+  on delete set null (cidade_id);
+
+alter table public.setores
+  add constraint setores_cidade_id_fkey
+  foreign key (cidade_id, empresa_id)
+  references public.cidades (id, empresa_id)
+  on delete cascade;
+
+alter table public.equipamentos
+  add constraint equipamentos_cidade_id_fkey
+  foreign key (cidade_id, empresa_id)
+  references public.cidades (id, empresa_id)
+  on delete cascade;
+
+alter table public.equipamentos
+  add constraint equipamentos_setor_id_fkey
+  foreign key (setor_id, cidade_id, empresa_id)
+  references public.setores (id, cidade_id, empresa_id)
+  on delete set null (setor_id);
+
+alter table public.checklists
+  add constraint checklists_equipamento_id_fkey
+  foreign key (equipamento_id, empresa_id)
+  references public.equipamentos (id, empresa_id)
+  on delete cascade;
+
+alter table public.checklists
+  add constraint checklists_responsavel_id_fkey
+  foreign key (responsavel_id, empresa_id)
+  references public.profiles (id, empresa_id)
+  on delete set null (responsavel_id);
+
+alter table public.checklist_itens
+  add constraint checklist_itens_checklist_id_fkey
+  foreign key (checklist_id, empresa_id)
+  references public.checklists (id, empresa_id)
+  on delete cascade;
+
+alter table public.estoque
+  add constraint estoque_material_id_fkey
+  foreign key (material_id, empresa_id)
+  references public.materiais (id, empresa_id)
+  on delete cascade;
+
+alter table public.estoque
+  add constraint estoque_cidade_id_fkey
+  foreign key (cidade_id, empresa_id)
+  references public.cidades (id, empresa_id)
+  on delete cascade;
+
+alter table public.movimentacoes
+  add constraint movimentacoes_material_id_fkey
+  foreign key (material_id, empresa_id)
+  references public.materiais (id, empresa_id)
+  on delete cascade;
+
+alter table public.movimentacoes
+  add constraint movimentacoes_cidade_id_fkey
+  foreign key (cidade_id, empresa_id)
+  references public.cidades (id, empresa_id)
+  on delete cascade;
+
+alter table public.movimentacoes
+  add constraint movimentacoes_equipamento_id_fkey
+  foreign key (equipamento_id, empresa_id)
+  references public.equipamentos (id, empresa_id)
+  on delete set null (equipamento_id);
+
+alter table public.movimentacoes
+  add constraint movimentacoes_usuario_id_fkey
+  foreign key (usuario_id, empresa_id)
+  references public.profiles (id, empresa_id)
+  on delete set null (usuario_id);
+
+alter table public.pendencias
+  add constraint pendencias_cidade_id_fkey
+  foreign key (cidade_id, empresa_id)
+  references public.cidades (id, empresa_id)
+  on delete cascade;
+
+alter table public.pendencias
+  add constraint pendencias_equipamento_id_fkey
+  foreign key (equipamento_id, empresa_id)
+  references public.equipamentos (id, empresa_id)
+  on delete set null (equipamento_id);
+
+alter table public.pendencias
+  add constraint pendencias_responsavel_id_fkey
+  foreign key (responsavel_id, empresa_id)
+  references public.profiles (id, empresa_id)
+  on delete set null (responsavel_id);
+
+-- =========================================================
 -- Utilitários
 -- =========================================================
 -- normalização simples de acentos para o slug (evita depender da extensão unaccent)
@@ -524,12 +710,15 @@ revoke all on all tables in schema public from anon;
 revoke all on all functions in schema public from anon;
 revoke all on all sequences in schema public from anon;
 
--- Funções de trigger não são endpoints RPC públicos.
+-- Funções de trigger e utilitários internos não são endpoints RPC públicos.
 revoke all on function public.handle_new_user() from public, anon, authenticated;
 revoke all on function public.aplicar_movimentacao() from public, anon, authenticated;
 revoke all on function public.proteger_papel() from public, anon, authenticated;
 revoke all on function public.proteger_convite() from public, anon, authenticated;
 revoke all on function public.sincronizar_verificacao_usuario() from public, anon, authenticated;
+revoke execute on function public.unaccent_simples(text) from public;
+revoke execute on function public.unaccent_simples(text) from anon;
+revoke execute on function public.unaccent_simples(text) from authenticated;
 
 -- Helpers das políticas podem ser chamados apenas pela sessão autenticada.
 revoke all on function public.empresa_atual() from public, anon;

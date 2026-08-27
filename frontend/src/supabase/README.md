@@ -16,13 +16,16 @@ Migrations reproduzíveis e ordenadas do schema Supabase.
 6. `0009_detalhes_checklist.sql` — adiciona `checklists.tecnico_nome`
 7. `0010_secoes_checklist.sql` — adiciona `checklist_itens.secao`
 8. `0011_grants_api_autenticada.sql` — normaliza grants mínimos para `authenticated`; RLS continua isolando por empresa/papel
+9. `0012_integridade_multi_tenant.sql` — adiciona preflight de integridade, FKs compostas com `empresa_id`, índices de suporte e remove `unaccent_simples(text)` da superfície RPC
 
-**Aplicação automática via Supabase CLI:**
+**Aplicação automática via Supabase CLI (somente para ambientes autorizados):**
 ```bash
 supabase login
 supabase link --project-ref <PROJECT_REF>
 supabase db push
 ```
+
+Para desenvolvimento local isolado, use apenas `supabase db reset` dentro deste diretório e não vincule o projeto local a Supabase Cloud.
 
 ### `admin-scripts/`
 Scripts administrativos manuais que **nunca devem ser executados por `db push` automático**.
@@ -48,9 +51,9 @@ Snapshot consolidado do estado final do schema.
 **Não deve substituir migrations incrementais** no fluxo normal de desenvolvimento.
 
 **Contém:**
-- Schema completo equivalente a `0001` + `0006`–`0011`
+- Schema completo equivalente a `0001` + `0006`–`0012`
 - Trigger de sincronização `auth.users` → `profiles`
-- RLS completo e hardenings
+- RLS completo, hardenings e integridade multi-tenant por FKs compostas
 - Conferência final do schema criado
 
 ### `testes/`
@@ -92,7 +95,7 @@ cd frontend/src/supabase
 supabase login
 supabase link --project-ref <NEW_PROJECT_REF>
 
-# 3. Aplicar migrations de schema (executa 0001, 0002 no-op, 0006-0011)
+# 3. Aplicar migrations de schema (executa 0001, 0002 no-op, 0006-0012)
 supabase db push
 
 # 4. Criar primeira conta owner pelo app
@@ -124,6 +127,21 @@ supabase db push
 - Tabelas operacionais carregam `empresa_id`
 - RLS valida `row.empresa_id = empresa_atual()`
 - `super_admin` tem bypass cross-tenant via `eh_super_admin()`
+
+### Integridade referencial tenant-scoped
+
+Regra arquitetural: toda FK entre duas tabelas tenant-scoped deve incluir `empresa_id`, salvo exceção documentada.
+
+A migration `0012_integridade_multi_tenant.sql` reforça essa regra no banco:
+
+- executa um preflight antes de alterar constraints; se encontrar inconsistência legada, falha com `RAISE EXCEPTION` e informa relação/quantidade, sem apagar ou corrigir dados automaticamente;
+- cria constraints únicas compostas de suporte em tabelas pai como `cidades(id, empresa_id)`, `equipamentos(id, empresa_id)`, `checklists(id, empresa_id)`, `materiais(id, empresa_id)` e `profiles(id, empresa_id)`;
+- cria `setores(id, cidade_id, empresa_id)` para permitir a regra forte de equipamento: quando `equipamentos.setor_id` existe, o setor precisa ser da mesma empresa e da mesma cidade do equipamento;
+- substitui as FKs simples por FKs compostas mantendo os nomes das constraints antigas, preservando o `ON DELETE` existente e evitando relações paralelas ambíguas no PostgREST;
+- adiciona índices nos lados filhos das FKs compostas, com índices parciais em referências opcionais;
+- garante que `profiles.cidade_id` seja `NULL` quando `profiles.empresa_id` for `NULL`, preservando `super_admin` legítimo sem empresa.
+
+Nesta etapa, `movimentacoes.equipamento_id` e `pendencias.equipamento_id` são validados por empresa. A regra adicional de mesma cidade entre movimentação/pendência e equipamento fica para migration futura se o produto exigir esse comportamento explicitamente.
 
 ### Papéis e Permissões
 
@@ -158,6 +176,20 @@ A migration `0011_grants_api_autenticada.sql` também ajusta default privileges 
 - `empresa_atual()` bloqueia empresas `suspensa`/`cancelada`
 - `proteger_papel()` estendido para proteger `ativo`, `email`, `telefone`, `email_verificado`, `criado_em`
 - Revogações explícitas: triggers não são endpoints RPC
+
+### Hardening (0012)
+- `public.unaccent_simples(text)` é utilitário interno do cadastro e não deve ser exposta como RPC.
+- `EXECUTE` é revogado de `PUBLIC`, `anon` e `authenticated`.
+- `handle_new_user()` continua podendo usar `unaccent_simples(text)` no cadastro local porque a trigger function é `SECURITY DEFINER` e roda com `search_path` controlado.
+- `unaccent_simples(text)` não deve ser convertida para `SECURITY DEFINER`.
+
+### Regras para migrations futuras
+- Toda nova tabela tenant-scoped deve carregar `empresa_id`, habilitar RLS e receber policies/grants mínimos antes de uso pela API.
+- Toda FK nova entre tabelas tenant-scoped deve incluir `empresa_id`; exceções precisam ser justificadas no SQL e neste README.
+- Se uma referência opcional usar `ON DELETE SET NULL` em FK composta, use column-list quando necessário para não anular `empresa_id` do registro filho.
+- Antes de adicionar constraints sobre dados existentes, crie preflight explícito com relação/quantidade e falha transacional; não faça limpeza automática em migration de schema.
+- Evite FKs paralelas para o mesmo relacionamento no PostgREST: substitua a FK antiga preservando o nome quando possível.
+- Crie índices de suporte no lado filho das FKs compostas e evite duplicar índices já cobertos.
 
 ---
 
@@ -273,5 +305,5 @@ Mas não substitui migrations no fluxo normal.
 
 Identificadas mas não implementadas ainda:
 
-- **Integridade cross-table FK:** validar que `cidade_id`, `material_id`, `equipamento_id`, `checklist_id` pertencem à mesma `empresa_id` em operações críticas
+- **Mesma cidade em operações com equipamento:** avaliar regra explícita para validar que `movimentacoes.equipamento_id` e `pendencias.equipamento_id`, quando preenchidos, apontem para equipamento da mesma cidade operacional do registro. A migration `0012` já garante isolamento por `empresa_id`; a restrição por cidade depende de decisão de produto.
 - **Seeds controlados por ambiente:** criar seeds específicos para staging sem dados relativos ou dependência da primeira empresa cadastrada
