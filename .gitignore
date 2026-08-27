@@ -10,6 +10,9 @@ dist/
 !**/.env.example
 *.log
 
+# Resultados temporários dos testes de carga k6.
+tmp-load-results/
+
 # Artefatos Python das ferramentas auxiliares não fazem parte da aplicação.
 .claude/**/*.py
 .claude/**/*.pyc
