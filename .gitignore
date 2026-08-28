@@ -19,6 +19,7 @@ tmp-load-results/
 .claude/**/__pycache__/
 .claude/**/.coverage
 .claude/**/requirements.txt
+.claude/worktrees/
 
 # Playwright
 playwright-report/
