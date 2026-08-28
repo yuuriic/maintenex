@@ -19,3 +19,10 @@ tmp-load-results/
 .claude/**/__pycache__/
 .claude/**/.coverage
 .claude/**/requirements.txt
+
+# Playwright
+playwright-report/
+test-results/
+tests/e2e/.auth/
+tests/e2e/**/storageState*.json
+**/storageState.json
