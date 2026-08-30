@@ -8,10 +8,10 @@
 --   1. schema multiempresa (tabelas, enums, índices)
 --   2. triggers de cadastro, estoque e proteção de papéis
 --   3. RLS por empresa e por papel
---   4. dados de demonstração (só populam depois que existir uma empresa)
+--   4. conferência final do schema criado
 --
 -- Depois de rodar: crie sua conta em /login?modo=cadastrar informando o nome
--- da empresa. Rode este arquivo de novo para o seed popular a empresa criada.
+-- da empresa. Dados de demonstração opcionais vivem em seeds/demo.sql.
 -- =========================================================================
 
 -- =========================================================
@@ -95,6 +95,42 @@ alter table profiles
 
 create index if not exists idx_profiles_telefone on profiles (telefone);
 
+-- =========================================================
+-- Sincronização Supabase Auth → profiles
+-- =========================================================
+-- Espelha telefone e email_verificado de auth.users para profiles.
+-- O Supabase Auth permanece sendo a fonte de verdade.
+create or replace function public.sincronizar_verificacao_usuario()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.profiles
+  set telefone = nullif(trim(new.raw_user_meta_data->>'telefone'), ''),
+      email_verificado = new.email_confirmed_at is not null
+  where id = new.id;
+  return new;
+end;
+$$;
+
+revoke all on function public.sincronizar_verificacao_usuario() from public, anon, authenticated;
+
+drop trigger if exists z_sync_auth_user_verification on auth.users;
+create trigger z_sync_auth_user_verification
+  after insert or update of email_confirmed_at, raw_user_meta_data on auth.users
+  for each row execute function public.sincronizar_verificacao_usuario();
+
+-- Sincroniza cadastros existentes quando o script for executado pela primeira vez.
+update public.profiles p
+set telefone = nullif(trim(u.raw_user_meta_data->>'telefone'), ''),
+    email_verificado = u.email_confirmed_at is not null
+from auth.users u
+where u.id = p.id
+  and (p.telefone is distinct from nullif(trim(u.raw_user_meta_data->>'telefone'), '')
+       or p.email_verificado is distinct from (u.email_confirmed_at is not null));
+
 create table if not exists convites (
   id uuid primary key default gen_random_uuid(),
   empresa_id uuid not null references empresas(id) on delete cascade,
@@ -170,6 +206,9 @@ create table if not exists checklists (
 
 alter table checklists add column if not exists tecnico_nome text;
 
+comment on column public.checklists.tecnico_nome is
+  'Nome informado pelo técnico responsável pela execução do checklist.';
+
 create table if not exists checklist_itens (
   id uuid primary key default gen_random_uuid(),
   empresa_id uuid not null references empresas(id) on delete cascade,
@@ -182,6 +221,9 @@ create table if not exists checklist_itens (
 );
 
 alter table checklist_itens add column if not exists secao text;
+
+comment on column public.checklist_itens.secao is
+  'Grupo funcional do item no formulário e na execução do checklist.';
 
 create table if not exists materiais (
   id uuid primary key default gen_random_uuid(),
@@ -242,6 +284,192 @@ create index if not exists idx_mov_empresa on movimentacoes(empresa_id);
 create index if not exists idx_mov_criado on movimentacoes(criado_em desc);
 create index if not exists idx_pend_empresa on pendencias(empresa_id);
 create index if not exists idx_convites_email on convites(lower(email));
+
+-- =========================================================
+-- Integridade multi-tenant: FKs tenant-scoped incluem empresa_id.
+-- Este bloco consolida o estado das migrations até 0012.
+-- =========================================================
+alter table public.profiles drop constraint if exists profiles_cidade_id_fkey;
+alter table public.setores drop constraint if exists setores_cidade_id_fkey;
+alter table public.equipamentos drop constraint if exists equipamentos_cidade_id_fkey;
+alter table public.equipamentos drop constraint if exists equipamentos_setor_id_fkey;
+alter table public.checklists drop constraint if exists checklists_equipamento_id_fkey;
+alter table public.checklists drop constraint if exists checklists_responsavel_id_fkey;
+alter table public.checklist_itens drop constraint if exists checklist_itens_checklist_id_fkey;
+alter table public.estoque drop constraint if exists estoque_material_id_fkey;
+alter table public.estoque drop constraint if exists estoque_cidade_id_fkey;
+alter table public.movimentacoes drop constraint if exists movimentacoes_material_id_fkey;
+alter table public.movimentacoes drop constraint if exists movimentacoes_cidade_id_fkey;
+alter table public.movimentacoes drop constraint if exists movimentacoes_equipamento_id_fkey;
+alter table public.movimentacoes drop constraint if exists movimentacoes_usuario_id_fkey;
+alter table public.pendencias drop constraint if exists pendencias_cidade_id_fkey;
+alter table public.pendencias drop constraint if exists pendencias_equipamento_id_fkey;
+alter table public.pendencias drop constraint if exists pendencias_responsavel_id_fkey;
+
+alter table public.cidades drop constraint if exists cidades_id_empresa_id_key;
+alter table public.cidades
+  add constraint cidades_id_empresa_id_key unique (id, empresa_id);
+
+alter table public.setores drop constraint if exists setores_id_cidade_id_empresa_id_key;
+alter table public.setores
+  add constraint setores_id_cidade_id_empresa_id_key unique (id, cidade_id, empresa_id);
+
+alter table public.equipamentos drop constraint if exists equipamentos_id_empresa_id_key;
+alter table public.equipamentos
+  add constraint equipamentos_id_empresa_id_key unique (id, empresa_id);
+
+alter table public.checklists drop constraint if exists checklists_id_empresa_id_key;
+alter table public.checklists
+  add constraint checklists_id_empresa_id_key unique (id, empresa_id);
+
+alter table public.materiais drop constraint if exists materiais_id_empresa_id_key;
+alter table public.materiais
+  add constraint materiais_id_empresa_id_key unique (id, empresa_id);
+
+alter table public.profiles drop constraint if exists profiles_id_empresa_id_key;
+alter table public.profiles
+  add constraint profiles_id_empresa_id_key unique (id, empresa_id);
+
+alter table public.profiles drop constraint if exists profiles_empresa_null_cidade_null_chk;
+alter table public.profiles
+  add constraint profiles_empresa_null_cidade_null_chk
+  check (empresa_id is not null or cidade_id is null);
+
+create index if not exists idx_profiles_cidade_empresa
+  on public.profiles (cidade_id, empresa_id)
+  where cidade_id is not null;
+create index if not exists idx_setores_cidade_empresa
+  on public.setores (cidade_id, empresa_id);
+create index if not exists idx_equipamentos_cidade_empresa
+  on public.equipamentos (cidade_id, empresa_id);
+create index if not exists idx_equipamentos_setor_cidade_empresa
+  on public.equipamentos (setor_id, cidade_id, empresa_id)
+  where setor_id is not null;
+create index if not exists idx_checklists_equipamento_empresa
+  on public.checklists (equipamento_id, empresa_id);
+create index if not exists idx_checklists_responsavel_empresa
+  on public.checklists (responsavel_id, empresa_id)
+  where responsavel_id is not null;
+create index if not exists idx_checklist_itens_checklist_empresa
+  on public.checklist_itens (checklist_id, empresa_id);
+create index if not exists idx_estoque_material_empresa
+  on public.estoque (material_id, empresa_id);
+create index if not exists idx_estoque_cidade_empresa
+  on public.estoque (cidade_id, empresa_id);
+create index if not exists idx_movimentacoes_material_empresa
+  on public.movimentacoes (material_id, empresa_id);
+create index if not exists idx_movimentacoes_cidade_empresa
+  on public.movimentacoes (cidade_id, empresa_id);
+create index if not exists idx_movimentacoes_equipamento_empresa
+  on public.movimentacoes (equipamento_id, empresa_id)
+  where equipamento_id is not null;
+create index if not exists idx_movimentacoes_usuario_empresa
+  on public.movimentacoes (usuario_id, empresa_id)
+  where usuario_id is not null;
+create index if not exists idx_pendencias_cidade_empresa
+  on public.pendencias (cidade_id, empresa_id);
+create index if not exists idx_pendencias_equipamento_empresa
+  on public.pendencias (equipamento_id, empresa_id)
+  where equipamento_id is not null;
+create index if not exists idx_pendencias_responsavel_empresa
+  on public.pendencias (responsavel_id, empresa_id)
+  where responsavel_id is not null;
+
+alter table public.profiles
+  add constraint profiles_cidade_id_fkey
+  foreign key (cidade_id, empresa_id)
+  references public.cidades (id, empresa_id)
+  on delete set null (cidade_id);
+
+alter table public.setores
+  add constraint setores_cidade_id_fkey
+  foreign key (cidade_id, empresa_id)
+  references public.cidades (id, empresa_id)
+  on delete cascade;
+
+alter table public.equipamentos
+  add constraint equipamentos_cidade_id_fkey
+  foreign key (cidade_id, empresa_id)
+  references public.cidades (id, empresa_id)
+  on delete cascade;
+
+alter table public.equipamentos
+  add constraint equipamentos_setor_id_fkey
+  foreign key (setor_id, cidade_id, empresa_id)
+  references public.setores (id, cidade_id, empresa_id)
+  on delete set null (setor_id);
+
+alter table public.checklists
+  add constraint checklists_equipamento_id_fkey
+  foreign key (equipamento_id, empresa_id)
+  references public.equipamentos (id, empresa_id)
+  on delete cascade;
+
+alter table public.checklists
+  add constraint checklists_responsavel_id_fkey
+  foreign key (responsavel_id, empresa_id)
+  references public.profiles (id, empresa_id)
+  on delete set null (responsavel_id);
+
+alter table public.checklist_itens
+  add constraint checklist_itens_checklist_id_fkey
+  foreign key (checklist_id, empresa_id)
+  references public.checklists (id, empresa_id)
+  on delete cascade;
+
+alter table public.estoque
+  add constraint estoque_material_id_fkey
+  foreign key (material_id, empresa_id)
+  references public.materiais (id, empresa_id)
+  on delete cascade;
+
+alter table public.estoque
+  add constraint estoque_cidade_id_fkey
+  foreign key (cidade_id, empresa_id)
+  references public.cidades (id, empresa_id)
+  on delete cascade;
+
+alter table public.movimentacoes
+  add constraint movimentacoes_material_id_fkey
+  foreign key (material_id, empresa_id)
+  references public.materiais (id, empresa_id)
+  on delete cascade;
+
+alter table public.movimentacoes
+  add constraint movimentacoes_cidade_id_fkey
+  foreign key (cidade_id, empresa_id)
+  references public.cidades (id, empresa_id)
+  on delete cascade;
+
+alter table public.movimentacoes
+  add constraint movimentacoes_equipamento_id_fkey
+  foreign key (equipamento_id, empresa_id)
+  references public.equipamentos (id, empresa_id)
+  on delete set null (equipamento_id);
+
+alter table public.movimentacoes
+  add constraint movimentacoes_usuario_id_fkey
+  foreign key (usuario_id, empresa_id)
+  references public.profiles (id, empresa_id)
+  on delete set null (usuario_id);
+
+alter table public.pendencias
+  add constraint pendencias_cidade_id_fkey
+  foreign key (cidade_id, empresa_id)
+  references public.cidades (id, empresa_id)
+  on delete cascade;
+
+alter table public.pendencias
+  add constraint pendencias_equipamento_id_fkey
+  foreign key (equipamento_id, empresa_id)
+  references public.equipamentos (id, empresa_id)
+  on delete set null (equipamento_id);
+
+alter table public.pendencias
+  add constraint pendencias_responsavel_id_fkey
+  foreign key (responsavel_id, empresa_id)
+  references public.profiles (id, empresa_id)
+  on delete set null (responsavel_id);
 
 -- =========================================================
 -- Utilitários
@@ -482,11 +710,15 @@ revoke all on all tables in schema public from anon;
 revoke all on all functions in schema public from anon;
 revoke all on all sequences in schema public from anon;
 
--- Funções de trigger não são endpoints RPC públicos.
+-- Funções de trigger e utilitários internos não são endpoints RPC públicos.
 revoke all on function public.handle_new_user() from public, anon, authenticated;
 revoke all on function public.aplicar_movimentacao() from public, anon, authenticated;
 revoke all on function public.proteger_papel() from public, anon, authenticated;
 revoke all on function public.proteger_convite() from public, anon, authenticated;
+revoke all on function public.sincronizar_verificacao_usuario() from public, anon, authenticated;
+revoke execute on function public.unaccent_simples(text) from public;
+revoke execute on function public.unaccent_simples(text) from anon;
+revoke execute on function public.unaccent_simples(text) from authenticated;
 
 -- Helpers das políticas podem ser chamados apenas pela sessão autenticada.
 revoke all on function public.empresa_atual() from public, anon;
@@ -499,6 +731,74 @@ grant execute on function public.eh_super_admin() to authenticated;
 grant execute on function public.pode_administrar_empresa() to authenticated;
 grant execute on function public.pode_gerir_cadastro() to authenticated;
 grant execute on function public.pode_operar() to authenticated;
+
+-- A API autenticada precisa de grants SQL para alcançar as tabelas;
+-- as políticas RLS abaixo continuam sendo a camada de isolamento.
+-- O Supabase local pode carregar default privileges amplos para objetos criados
+-- por postgres; por isso normalizamos explicitamente as tabelas da aplicação.
+grant usage on schema public to authenticated;
+
+revoke all privileges on table
+  public.empresas,
+  public.profiles,
+  public.convites,
+  public.cidades,
+  public.setores,
+  public.equipamentos,
+  public.checklists,
+  public.checklist_itens,
+  public.materiais,
+  public.estoque,
+  public.movimentacoes,
+  public.pendencias
+from anon;
+
+revoke truncate, references, trigger, maintain on table
+  public.empresas,
+  public.profiles,
+  public.convites,
+  public.cidades,
+  public.setores,
+  public.equipamentos,
+  public.checklists,
+  public.checklist_itens,
+  public.materiais,
+  public.estoque,
+  public.movimentacoes,
+  public.pendencias
+from authenticated;
+
+grant select, insert, update, delete on table
+  public.empresas,
+  public.profiles,
+  public.convites,
+  public.cidades,
+  public.setores,
+  public.equipamentos,
+  public.checklists,
+  public.checklist_itens,
+  public.materiais,
+  public.estoque,
+  public.movimentacoes,
+  public.pendencias
+to authenticated;
+
+revoke all privileges on all sequences in schema public from anon;
+revoke all privileges on all sequences in schema public from authenticated;
+grant usage, select on all sequences in schema public to authenticated;
+
+alter default privileges for role postgres in schema public
+  revoke all privileges on tables from anon;
+alter default privileges for role postgres in schema public
+  revoke truncate, references, trigger, maintain on tables from authenticated;
+alter default privileges for role postgres in schema public
+  grant select, insert, update, delete on tables to authenticated;
+alter default privileges for role postgres in schema public
+  revoke all privileges on sequences from anon;
+alter default privileges for role postgres in schema public
+  revoke all privileges on sequences from authenticated;
+alter default privileges for role postgres in schema public
+  grant usage, select on sequences to authenticated;
 
 -- --- Cadastros: leitura para a empresa, escrita para gestor+ --------------
 do $$
@@ -591,149 +891,6 @@ create policy "convite_admin" on convites for all to authenticated
   with check ((empresa_id = public.empresa_atual() and public.pode_administrar_empresa()) or public.eh_super_admin());
 
 
--- =========================================================
--- Maintenex :: dados de demonstração (idempotente)
---
--- Popula a PRIMEIRA empresa cadastrada. Rode depois de criar sua conta
--- pelo app (o auto-cadastro cria a empresa). Sem empresa, não faz nada.
--- =========================================================
-
-do $$
-declare
-  emp uuid;
-begin
-  select id into emp from empresas order by criado_em limit 1;
-
-  if emp is null then
-    raise notice 'Nenhuma empresa cadastrada — seed ignorado. Crie a conta pelo app e rode de novo.';
-    return;
-  end if;
-
-  raise notice 'Populando empresa %', emp;
-
-  -- Cidades ------------------------------------------------
-  insert into cidades (empresa_id, nome, uf)
-  select emp, v.nome, v.uf
-  from (values ('Paranaguá', 'PR'), ('Curitiba', 'PR'), ('Joinville', 'SC')) as v(nome, uf)
-  on conflict (empresa_id, nome, uf) do nothing;
-
-  -- Setores ------------------------------------------------
-  insert into setores (empresa_id, cidade_id, nome, responsavel)
-  select emp, c.id, s.nome, s.resp
-  from cidades c
-  cross join (values
-    ('Administrativo', 'Ana Souza'),
-    ('Operacional', 'Bruno Lima'),
-    ('Almoxarifado Central', 'Carla Dias'),
-    ('Manutenção', 'Diego Alves')
-  ) as s(nome, resp)
-  where c.empresa_id = emp
-  on conflict (cidade_id, nome) do nothing;
-
-  -- Materiais ----------------------------------------------
-  insert into materiais (empresa_id, codigo, nome, categoria, unidade, estoque_minimo)
-  select emp, v.codigo, v.nome, v.categoria, v.unidade, v.minimo
-  from (values
-    ('MAT-001', 'Toner Preto HP 26A', 'Suprimento', 'un', 10),
-    ('MAT-002', 'Cilindro Fotocondutor', 'Peça', 'un', 5),
-    ('MAT-003', 'Kit Manutenção 200k', 'Kit', 'kit', 2),
-    ('MAT-004', 'Rolo de Tração', 'Peça', 'un', 8),
-    ('MAT-005', 'Fusor 220V', 'Peça', 'un', 3),
-    ('MAT-006', 'Álcool Isopropílico 1L', 'Consumível', 'l', 12),
-    ('MAT-007', 'Pano Antiestático', 'Consumível', 'pct', 15),
-    ('MAT-008', 'Correia de Transferência', 'Peça', 'un', 4)
-  ) as v(codigo, nome, categoria, unidade, minimo)
-  on conflict (empresa_id, codigo) do nothing;
-
-  -- Equipamentos -------------------------------------------
-  insert into equipamentos (empresa_id, cidade_id, setor_id, codigo, nome, marca, modelo,
-                            numero_serie, localizacao, status, contador, ultima_manutencao, proxima_manutencao)
-  select
-    emp,
-    c.id,
-    (select s.id from setores s where s.cidade_id = c.id order by s.nome limit 1),
-    'EQP-' || upper(left(c.uf, 2)) || '-' || lpad(g::text, 3, '0'),
-    (array['Multifuncional','Impressora Laser','Scanner de Produção','Plotter'])[1 + (g % 4)] || ' ' ||
-      (array['A3','A4','Color','Mono'])[1 + (g % 4)],
-    (array['HP','Brother','Kyocera','Epson'])[1 + (g % 4)],
-    (array['M428fdw','MFC-L8900','ECOSYS M3145','WF-C5790'])[1 + (g % 4)],
-    'SN' || lpad((10000 + g * 37)::text, 8, '0'),
-    'Sala ' || (100 + g),
-    (array['ativo','ativo','ativo','manutencao','inativo'])[1 + (g % 5)]::status_equipamento,
-    5000 + g * 1234,
-    current_date - ((g % 90) || ' days')::interval,
-    current_date + ((30 - (g % 30)) || ' days')::interval
-  from cidades c, generate_series(1, 8) g
-  where c.empresa_id = emp
-  on conflict (empresa_id, codigo) do nothing;
-
-  -- Checklists ---------------------------------------------
-  insert into checklists (empresa_id, equipamento_id, tipo, status, titulo, data_prevista, data_conclusao)
-  select
-    emp, e.id,
-    (array['preventiva','preventiva','preventiva','corretiva'])[1 + (g % 4)]::tipo_checklist,
-    (array['concluido','concluido','pendente','em_andamento'])[1 + (g % 4)]::status_checklist,
-    (array['Limpeza geral','Troca de suprimento','Revisão mecânica','Correção de atolamento'])[1 + (g % 4)],
-    current_date - ((g * 7) % 120),
-    case when g % 4 < 2 then now() - (((g * 7) % 120) || ' days')::interval end
-  from equipamentos e, generate_series(1, 3) g
-  where e.empresa_id = emp
-    and not exists (select 1 from checklists cl where cl.equipamento_id = e.id);
-
-  -- Itens de checklist -------------------------------------
-  insert into checklist_itens (empresa_id, checklist_id, secao, descricao, concluido, ordem)
-  select emp, cl.id, i.secao, i.descricao, cl.status = 'concluido', i.ordem
-  from checklists cl
-  cross join lateral (
-    select * from (values
-      ('Inspeção física', 'Verificar integridade da estrutura ou carcaça', 1),
-      ('Limpeza e conservação', 'Realizar limpeza externa do equipamento', 2),
-      ('Energia e alimentação', 'Verificar fonte, carregador ou bateria', 3),
-      ('Software e conectividade', 'Verificar sistema, firmware e conectividade', 4),
-      ('Testes funcionais', 'Executar teste final de funcionamento', 5)
-    ) as preventiva(secao, descricao, ordem)
-    where cl.tipo = 'preventiva'
-    union all
-    select * from (values
-      ('Registro da falha', 'Confirmar e registrar o problema relatado', 1),
-      ('Diagnóstico inicial', 'Identificar a causa provável ou raiz', 2),
-      ('Hardware e componentes', 'Testar os componentes afetados', 3),
-      ('Reparo executado', 'Executar o reparo ou substituição necessária', 4),
-      ('Validação do reparo', 'Confirmar que a falha original foi eliminada', 5)
-    ) as corretiva(secao, descricao, ordem)
-    where cl.tipo = 'corretiva'
-  ) as i
-  where cl.empresa_id = emp
-    and not exists (select 1 from checklist_itens ci where ci.checklist_id = cl.id);
-
-  -- Movimentações (o trigger atualiza o estoque) -----------
-  insert into movimentacoes (empresa_id, material_id, cidade_id, tipo, quantidade, motivo, criado_em)
-  select
-    emp, m.id, c.id,
-    (array['entrada','saida','saida','entrada'])[1 + (g % 4)]::tipo_movimentacao,
-    1 + (g % 9),
-    (array['Compra','Consumo em preventiva','Consumo em corretiva','Reposição'])[1 + (g % 4)],
-    now() - ((g * 5) || ' days')::interval
-  from materiais m, cidades c, generate_series(1, 4) g
-  where m.empresa_id = emp and c.empresa_id = emp
-    and not exists (select 1 from movimentacoes mv where mv.material_id = m.id and mv.cidade_id = c.id);
-
-  -- Pendências ---------------------------------------------
-  insert into pendencias (empresa_id, cidade_id, equipamento_id, titulo, descricao,
-                          prioridade, status, aberta_em, fechada_em)
-  select
-    emp, e.cidade_id, e.id,
-    (array['Ruído anormal no fusor','Falha de rede intermitente','Atolamento recorrente','Qualidade de impressão baixa'])[1 + (g % 4)],
-    'Registrado durante inspeção de rotina no equipamento ' || e.codigo || '.',
-    (array['baixa','media','alta','critica'])[1 + (g % 4)]::prioridade_pendencia,
-    (array['aberta','aberta','em_andamento','resolvida'])[1 + (g % 4)]::status_pendencia,
-    now() - ((g * 9) || ' days')::interval,
-    case when g % 4 = 3 then now() - ((g * 3) || ' days')::interval end
-  from equipamentos e, generate_series(1, 2) g
-  where e.empresa_id = emp
-    and not exists (select 1 from pendencias p where p.equipamento_id = e.id);
-end $$;
-
 
 -- =========================================================================
 -- Conferência final: o que foi criado
@@ -767,7 +924,7 @@ begin
   raise notice 'empresas ..... %', qtd_empresas;
   if qtd_empresas = 0 then
     raise notice 'proximo passo: crie sua conta em /login?modo=cadastrar';
-    raise notice 'e rode este arquivo de novo para popular os dados de exemplo.';
+    raise notice 'dados de demonstracao opcionais vivem em seeds/demo.sql.';
   end if;
   raise notice '--------------------------------------------';
 end $$;

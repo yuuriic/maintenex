@@ -103,6 +103,7 @@ from pendencias;
 -- 10. Usuário desativado perde acesso
 -- ============================================================
 reset role;
+reset request.jwt.claim.sub;
 update profiles set ativo = false where id = '33333333-3333-3333-3333-333333333333';
 set role authenticated;
 set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';

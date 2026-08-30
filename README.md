@@ -6,7 +6,7 @@ pendências com SLA. Reimplementação independente do sistema criado no Base44.
 ## Arquitetura
 
 - `frontend`: React + Vite + TypeScript. Fala direto com o Supabase (auth + banco).
-- `supabase/migrations`: schema, RLS e dados de demonstração.
+- `frontend/src/supabase`: migrations de schema, scripts administrativos manuais, testes locais e seeds opcionais.
 - `backend`: Spring Boot legado, **mantido parado** no repositório. O produto não depende dele.
 - `docker-compose.yml`: PostgreSQL local, usado apenas pelo backend legado.
 
@@ -45,8 +45,11 @@ pessoa cria a conta com aquele e-mail, o trigger a vincula à empresa com o pape
 
 No painel do Supabase → **SQL Editor** → cole e execute, nesta ordem:
 
-1. `supabase/migrations/0001_init.sql` — tabelas, triggers e RLS
-2. `supabase/migrations/0002_seed.sql` — dados de demonstração (opcional, rode **depois** de criar a primeira conta)
+1. `frontend/src/supabase/migrations/0001_init.sql` — tabelas, triggers e RLS
+2. `frontend/src/supabase/migrations/0002_seed.sql` — no-op de compatibilidade histórica
+3. `frontend/src/supabase/migrations/0006_verificacao_cadastro.sql` até `0010_secoes_checklist.sql` — evoluções de schema
+
+Dados de demonstração opcionais ficam em `frontend/src/supabase/seeds/demo.sql` e devem ser executados manualmente somente quando necessário.
 
 Ou, com a CLI autenticada:
 
@@ -63,7 +66,7 @@ Esse usuário vira o `owner` da empresa criada.
 
 ### 3. Promover a administração da plataforma
 
-Edite `supabase/migrations/0003_promover_super_admin.sql` com o seu e-mail e execute
+Edite `frontend/src/supabase/admin-scripts/0003_promover_super_admin.sql` com o seu e-mail e execute
 no SQL Editor. Esse usuário passa a ver a aba **Empresas**.
 
 ## Rodar local

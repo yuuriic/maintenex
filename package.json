@@ -1,5 +1,15 @@
 {
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed"
+  },
   "dependencies": {
     "motion": "^13.1.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "supabase": "^2.115.0",
+    "typescript": "^7.0.2"
   }
 }
