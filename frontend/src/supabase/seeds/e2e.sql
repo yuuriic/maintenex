@@ -7,6 +7,7 @@
 --   e2e-gestor@example.test  / MaintenexE2E!123
 --   e2e-tecnico@example.test / MaintenexE2E!123
 --   e2e-leitor@example.test  / MaintenexE2E!123
+--   e2e-super-admin@example.test / MaintenexE2E!123
 -- =========================================================
 
 create extension if not exists "pgcrypto";
@@ -39,13 +40,15 @@ begin
     'e2e-owner@example.test',
     'e2e-gestor@example.test',
     'e2e-tecnico@example.test',
-    'e2e-leitor@example.test'
+    'e2e-leitor@example.test',
+    'e2e-super-admin@example.test'
   )
   and id not in (
     '00000000-0000-4000-8000-000000000101'::uuid,
     '00000000-0000-4000-8000-000000000102'::uuid,
     '00000000-0000-4000-8000-000000000103'::uuid,
-    '00000000-0000-4000-8000-000000000104'::uuid
+    '00000000-0000-4000-8000-000000000104'::uuid,
+    '00000000-0000-4000-8000-000000000105'::uuid
   );
 
   insert into auth.users (
@@ -82,10 +85,11 @@ begin
     '',
     ''
   from (values
-    ('00000000-0000-4000-8000-000000000101'::uuid, 'e2e-owner@example.test',   'E2E Owner'),
-    ('00000000-0000-4000-8000-000000000102'::uuid, 'e2e-gestor@example.test',  'E2E Gestor'),
-    ('00000000-0000-4000-8000-000000000103'::uuid, 'e2e-tecnico@example.test', 'E2E Técnico'),
-    ('00000000-0000-4000-8000-000000000104'::uuid, 'e2e-leitor@example.test',  'E2E Leitor')
+    ('00000000-0000-4000-8000-000000000101'::uuid, 'e2e-owner@example.test',       'E2E Owner'),
+    ('00000000-0000-4000-8000-000000000102'::uuid, 'e2e-gestor@example.test',      'E2E Gestor'),
+    ('00000000-0000-4000-8000-000000000103'::uuid, 'e2e-tecnico@example.test',     'E2E Técnico'),
+    ('00000000-0000-4000-8000-000000000104'::uuid, 'e2e-leitor@example.test',      'E2E Leitor'),
+    ('00000000-0000-4000-8000-000000000105'::uuid, 'e2e-super-admin@example.test', 'E2E Super Admin')
   ) as seeded(id, email, nome)
   on conflict (id) do update
     set email = excluded.email,
@@ -120,7 +124,8 @@ begin
     ('00000000-0000-4000-8000-000000000201'::uuid, '00000000-0000-4000-8000-000000000101'::uuid, 'e2e-owner@example.test'),
     ('00000000-0000-4000-8000-000000000202'::uuid, '00000000-0000-4000-8000-000000000102'::uuid, 'e2e-gestor@example.test'),
     ('00000000-0000-4000-8000-000000000203'::uuid, '00000000-0000-4000-8000-000000000103'::uuid, 'e2e-tecnico@example.test'),
-    ('00000000-0000-4000-8000-000000000204'::uuid, '00000000-0000-4000-8000-000000000104'::uuid, 'e2e-leitor@example.test')
+    ('00000000-0000-4000-8000-000000000204'::uuid, '00000000-0000-4000-8000-000000000104'::uuid, 'e2e-leitor@example.test'),
+    ('00000000-0000-4000-8000-000000000205'::uuid, '00000000-0000-4000-8000-000000000105'::uuid, 'e2e-super-admin@example.test')
   ) as seeded(identity_id, user_id, email)
   on conflict (provider, provider_id) do update
     set user_id = excluded.user_id,
@@ -128,19 +133,21 @@ begin
         updated_at = fixed_now,
         last_sign_in_at = fixed_now;
 
-  insert into profiles (id, empresa_id, nome, email, papel, ativo, criado_em)
-  select seeded.id, e2e_empresa_id, seeded.nome, seeded.email, seeded.papel, true, fixed_now
+  insert into profiles (id, empresa_id, nome, email, papel, cidade_id, ativo, criado_em)
+  select seeded.id, seeded.empresa_id, seeded.nome, seeded.email, seeded.papel, seeded.cidade_id, true, fixed_now
   from (values
-    ('00000000-0000-4000-8000-000000000101'::uuid, 'E2E Owner',   'e2e-owner@example.test',   'owner'::papel_usuario),
-    ('00000000-0000-4000-8000-000000000102'::uuid, 'E2E Gestor',  'e2e-gestor@example.test',  'gestor'::papel_usuario),
-    ('00000000-0000-4000-8000-000000000103'::uuid, 'E2E Técnico', 'e2e-tecnico@example.test', 'tecnico'::papel_usuario),
-    ('00000000-0000-4000-8000-000000000104'::uuid, 'E2E Leitor',  'e2e-leitor@example.test',  'leitor'::papel_usuario)
-  ) as seeded(id, nome, email, papel)
+    ('00000000-0000-4000-8000-000000000101'::uuid, e2e_empresa_id, 'E2E Owner',       'e2e-owner@example.test',       'owner'::papel_usuario, null::uuid),
+    ('00000000-0000-4000-8000-000000000102'::uuid, e2e_empresa_id, 'E2E Gestor',      'e2e-gestor@example.test',      'gestor'::papel_usuario, null::uuid),
+    ('00000000-0000-4000-8000-000000000103'::uuid, e2e_empresa_id, 'E2E Técnico',     'e2e-tecnico@example.test',     'tecnico'::papel_usuario, null::uuid),
+    ('00000000-0000-4000-8000-000000000104'::uuid, e2e_empresa_id, 'E2E Leitor',      'e2e-leitor@example.test',      'leitor'::papel_usuario, null::uuid),
+    ('00000000-0000-4000-8000-000000000105'::uuid, null::uuid,     'E2E Super Admin', 'e2e-super-admin@example.test', 'super_admin'::papel_usuario, null::uuid)
+  ) as seeded(id, empresa_id, nome, email, papel, cidade_id)
   on conflict (id) do update
     set empresa_id = excluded.empresa_id,
         nome = excluded.nome,
         email = excluded.email,
         papel = excluded.papel,
+        cidade_id = excluded.cidade_id,
         ativo = excluded.ativo;
 
   insert into cidades (id, empresa_id, nome, uf, ativa, criado_em)
