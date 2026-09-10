@@ -16,6 +16,7 @@ do $$
 declare
   e2e_empresa_id constant uuid := '00000000-0000-4000-8000-000000000001';
   e2e_cidade_id uuid;
+  e2e_cidade_secundaria_id uuid;
   e2e_setor_id uuid;
   bcrypt_salt constant text := '$2a$10$abcdefghijklmnopqrstuu';
   fixed_now constant timestamptz := '2026-01-01 00:00:00+00';
@@ -163,6 +164,19 @@ begin
     set ativa = excluded.ativa
   returning id into e2e_cidade_id;
 
+  insert into cidades (id, empresa_id, nome, uf, ativa, criado_em)
+  values (
+    '00000000-0000-4000-8000-000000000305'::uuid,
+    e2e_empresa_id,
+    'Cidade E2E Secundaria',
+    'RJ',
+    true,
+    fixed_now
+  )
+  on conflict (empresa_id, nome, uf) do update
+    set ativa = excluded.ativa
+  returning id into e2e_cidade_secundaria_id;
+
   insert into setores (id, empresa_id, cidade_id, nome, responsavel, criado_em)
   values (
     '00000000-0000-4000-8000-000000000302'::uuid,
@@ -203,6 +217,47 @@ begin
     'Checklist Local',
     'E2E-LOCAL-CHK-001',
     'Cidade E2E Local / Setor E2E Local',
+    'ativo'::status_equipamento,
+    0,
+    fixed_now
+  )
+  on conflict (empresa_id, codigo) do update
+    set cidade_id = excluded.cidade_id,
+        setor_id = excluded.setor_id,
+        nome = excluded.nome,
+        marca = excluded.marca,
+        modelo = excluded.modelo,
+        numero_serie = excluded.numero_serie,
+        localizacao = excluded.localizacao,
+        status = excluded.status,
+        contador = excluded.contador;
+
+  insert into equipamentos (
+    id,
+    empresa_id,
+    cidade_id,
+    setor_id,
+    codigo,
+    nome,
+    marca,
+    modelo,
+    numero_serie,
+    localizacao,
+    status,
+    contador,
+    criado_em
+  )
+  values (
+    '00000000-0000-4000-8000-000000000306'::uuid,
+    e2e_empresa_id,
+    e2e_cidade_secundaria_id,
+    null::uuid,
+    'E2E-CID-002',
+    'Equipamento Cidade Secundaria E2E',
+    'Maintenex',
+    'Cidade Secundaria Local',
+    'E2E-LOCAL-CID-002',
+    'Cidade E2E Secundaria',
     'ativo'::status_equipamento,
     0,
     fixed_now
