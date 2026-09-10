@@ -8,7 +8,7 @@ import { Activity, Boxes, Printer, TriangleAlert } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../lib/app-state'
 import { useConsulta } from '../hooks/useConsulta'
-import { Badge, Painel, Skeleton, StatCard, Vazio } from '../components/ui'
+import { Badge, ErroDados, Painel, Skeleton, StatCard, Vazio } from '../components/ui'
 import { data, nf, titulo } from '../lib/format'
 import type { Checklist, Equipamento, Movimentacao, Pendencia } from '../lib/types'
 
@@ -24,7 +24,7 @@ interface Painelzinho {
 export default function Dashboard() {
   const { cidadeId, cidadeAtual, setorId } = useApp()
 
-  const { dados, carregando } = useConsulta<Painelzinho>(async () => {
+  const { dados, carregando, erro, recarregar } = useConsulta<Painelzinho>(async () => {
     const filtroCidade = <T,>(q: T) => (cidadeId ? (q as any).eq('cidade_id', cidadeId) : q)
 
     const [eq, ck, pe, mv] = await Promise.all([
@@ -139,6 +139,7 @@ export default function Dashboard() {
         </div>
         <Badge tom="verde">{m.equipamentosAtivos}/{m.totalEquipamentos} equipamentos ativos</Badge>
       </div>
+      {erro && <ErroDados recarregar={recarregar} />}
 
       <div className="cards">
         <StatCard tom="azul" rotulo="Preventivas realizadas" valor={nf.format(m.preventivas)}

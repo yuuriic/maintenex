@@ -5,7 +5,7 @@ import { useApp } from '../lib/app-state'
 import { useAuth } from '../auth/AuthProvider'
 import { useConsulta } from '../hooks/useConsulta'
 import { useToast } from '../components/Toast'
-import { Badge, Campo, ConfirmarExclusao, Modal, Skeleton, Vazio } from '../components/ui'
+import { Badge, Campo, ConfirmarExclusao, ErroDados, Modal, Skeleton, Vazio } from '../components/ui'
 import { data, titulo } from '../lib/format'
 import type { Checklist as ChecklistTipo, ChecklistItem, Equipamento, StatusChecklist, TipoChecklist } from '../lib/types'
 
@@ -184,7 +184,7 @@ export default function Checklist() {
     return (linhas ?? []) as Equipamento[]
   }, [cidadeId])
 
-  const { dados, setDados, carregando, recarregar } = useConsulta<ChecklistTipo[]>(async () => {
+  const { dados, setDados, carregando, erro, recarregar } = useConsulta<ChecklistTipo[]>(async () => {
     const { data: linhas, error } = await supabase
       .from('checklists')
       .select('*, equipamentos(id, codigo, nome, marca, modelo, numero_serie, localizacao, cidade_id), checklist_itens(*)')
@@ -378,6 +378,7 @@ export default function Checklist() {
         </div>
         <button className="btn primario" onClick={abrirCriacao}><Plus size={16} />Novo checklist</button>
       </div>
+      {erro && <ErroDados recarregar={recarregar} />}
 
       <div className="filtros">
         <div className="campo-input busca">

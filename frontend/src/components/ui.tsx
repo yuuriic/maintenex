@@ -44,6 +44,18 @@ export function Carregando({ texto = 'Carregando…' }) {
   return <div className="empty"><Loader2 size={22} className="girando" /><span>{texto}</span></div>
 }
 
+export function ErroDados({ recarregar, texto = 'Não foi possível carregar os dados. Tente novamente.' }: {
+  recarregar: () => Promise<void>; texto?: string
+}) {
+  return (
+    <div className="alerta erro" role="alert">
+      <AlertTriangle size={17} />
+      <span>{texto}</span>
+      <button type="button" className="btn" onClick={() => void recarregar()}>Tentar novamente</button>
+    </div>
+  )
+}
+
 export function Skeleton({ linhas = 5 }: { linhas?: number }) {
   return (
     <div className="skeleton-lista">

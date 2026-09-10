@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useApp } from '../lib/app-state'
 import { useConsulta } from '../hooks/useConsulta'
 import { useToast } from '../components/Toast'
-import { Badge, Campo, ConfirmarExclusao, Modal, Skeleton, Vazio } from '../components/ui'
+import { Badge, Campo, ConfirmarExclusao, ErroDados, Modal, Skeleton, Vazio } from '../components/ui'
 import { data, nf, titulo } from '../lib/format'
 import type { Equipamento, StatusEquipamento } from '../lib/types'
 
@@ -29,7 +29,7 @@ export default function Equipamentos() {
   const [excluir, setExcluir] = useState<Equipamento | null>(null)
   const [salvando, setSalvando] = useState(false)
 
-  const { dados, carregando, recarregar } = useConsulta<Equipamento[]>(async () => {
+  const { dados, carregando, erro, recarregar } = useConsulta<Equipamento[]>(async () => {
     let q = supabase.from('equipamentos').select('*, setores(id, nome)').order('codigo')
     if (cidadeId) q = q.eq('cidade_id', cidadeId)
     if (setorId) q = q.eq('setor_id', setorId)
@@ -104,6 +104,7 @@ export default function Equipamentos() {
         </div>
         <button className="btn primario" onClick={abrirNovo}><Plus size={16} />Novo equipamento</button>
       </div>
+      {erro && <ErroDados recarregar={recarregar} />}
 
       <div className="filtros">
         <div className="campo-input busca">

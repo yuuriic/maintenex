@@ -9,6 +9,7 @@ interface AuthContextValue {
   session: Session | null
   user: User | null
   profile: Profile | null
+  erroPerfil: string | null
   carregando: boolean
   recuperandoSenha: boolean
   entrar: (email: string, senha: string) => Promise<void>
@@ -34,16 +35,18 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [erroPerfil, setErroPerfil] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(true)
   const [recuperandoSenha, setRecuperandoSenha] = useState(false)
 
   useEffect(() => {
     if (!supabaseConfigurado) { setCarregando(false); return }
 
-    supabase.auth.getSession().then(({ data }) => {
+    Promise.resolve(supabase.auth.getSession()).then(({ data }) => {
       setSession(data.session)
-      setCarregando(false)
-    })
+    }).catch(() => {
+      setSession(null)
+    }).finally(() => setCarregando(false))
 
     const { data: sub } = supabase.auth.onAuthStateChange((evento, novaSessao) => {
       if (evento === 'PASSWORD_RECOVERY') setRecuperandoSenha(true)
@@ -56,27 +59,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const id = session?.user?.id
-    if (!id) { setProfile(null); return }
+    if (!id) { setProfile(null); setErroPerfil(null); return }
 
     let ativo = true
-    supabase.from('profiles').select('*, empresas(id, nome, slug, status)').eq('id', id).maybeSingle().then(({ data }) => {
-      if (!ativo) return
-      setProfile(
-        (data as Profile | null) ?? {
-          id,
-          nome: session!.user.user_metadata?.nome ?? session!.user.email?.split('@')[0] ?? 'Usuário',
-          email: session!.user.email ?? '',
-          telefone: session!.user.user_metadata?.telefone ?? null,
-          email_verificado: Boolean(session!.user.email_confirmed_at),
-          papel: 'leitor',
-          empresa_id: null,
-          cidade_id: null,
-          avatar_url: null,
-          ativo: true,
-          criado_em: new Date().toISOString(),
-        },
-      )
-    })
+    setProfile(null)
+    setErroPerfil(null)
+    void (async () => {
+      try {
+        const { data } = await supabase.from('profiles').select('*, empresas(id, nome, slug, status)').eq('id', id).maybeSingle()
+        if (!ativo) return
+        setProfile(
+          (data as Profile | null) ?? {
+            id,
+            nome: session!.user.user_metadata?.nome ?? session!.user.email?.split('@')[0] ?? 'Usuário',
+            email: session!.user.email ?? '',
+            telefone: session!.user.user_metadata?.telefone ?? null,
+            email_verificado: Boolean(session!.user.email_confirmed_at),
+            papel: 'leitor',
+            empresa_id: null,
+            cidade_id: null,
+            avatar_url: null,
+            ativo: true,
+            criado_em: new Date().toISOString(),
+          },
+        )
+      } catch {
+        if (ativo) {
+          setProfile(null)
+          setErroPerfil('Não foi possível carregar seu perfil. Verifique sua conexão e tente novamente.')
+        }
+      }
+    })()
     return () => { ativo = false }
   }, [session])
 
@@ -84,6 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     user: session?.user ?? null,
     profile,
+    erroPerfil,
     carregando,
     recuperandoSenha,
 
@@ -154,7 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) throw new Error(error.message)
       setProfile(data as Profile)
     },
-  }), [session, profile, carregando, recuperandoSenha])
+  }), [session, profile, erroPerfil, carregando, recuperandoSenha])
 
   return <AuthContext.Provider value={valor}>{children}</AuthContext.Provider>
 }

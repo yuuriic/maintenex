@@ -10,6 +10,8 @@ const mensagensSeguras = new Set([
   'Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.',
   'Muitas tentativas. Aguarde alguns minutos antes de reenviar.',
   'Aguarde antes de solicitar um novo código.',
+  'Supabase indisponível ou lento demais. Tente novamente.',
+  'Serviço de autenticação indisponível ou lento demais. Tente novamente.',
   'O link é inválido ou expirou. Solicite um novo link de recuperação.',
 ])
 

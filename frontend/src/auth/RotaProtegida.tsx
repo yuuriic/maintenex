@@ -1,9 +1,9 @@
 import { Link, Navigate, useLocation } from 'react-router-dom'
-import { Building2, Loader2, LogOut } from 'lucide-react'
+import { AlertTriangle, Building2, Loader2, LogOut } from 'lucide-react'
 import { useAuth } from './AuthProvider'
 
 export default function RotaProtegida({ children }: { children: React.ReactNode }) {
-  const { session, profile, carregando, sair } = useAuth()
+  const { session, profile, erroPerfil, carregando, sair } = useAuth()
   const local = useLocation()
 
   if (carregando) {
@@ -11,6 +11,20 @@ export default function RotaProtegida({ children }: { children: React.ReactNode 
   }
 
   if (!session) return <Navigate to="/login" replace state={{ de: local.pathname }} />
+
+  if (erroPerfil) {
+    return (
+      <div className="tela-carregando">
+        <AlertTriangle size={30} />
+        <h1>Não foi possível carregar seu acesso</h1>
+        <p className="sem-empresa">{erroPerfil}</p>
+        <div className="acoes-topo">
+          <button className="btn primario" onClick={() => window.location.reload()}>Tentar novamente</button>
+          <button className="btn" onClick={() => void sair()}><LogOut size={16} />Sair</button>
+        </div>
+      </div>
+    )
+  }
 
   // Perfil ainda não sincronizado (o trigger roda logo após o signUp)
   if (!profile) {

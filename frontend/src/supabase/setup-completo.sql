@@ -476,7 +476,7 @@ alter table public.pendencias
 -- =========================================================
 -- normalização simples de acentos para o slug (evita depender da extensão unaccent)
 create or replace function public.unaccent_simples(texto text)
-returns text language sql immutable as $$
+returns text language sql immutable set search_path = pg_catalog as $$
   select translate(
     texto,
     'áàâãäéèêëíìîïóòôõöúùûüçÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ',
@@ -800,93 +800,117 @@ alter default privileges for role postgres in schema public
 alter default privileges for role postgres in schema public
   grant usage, select on sequences to authenticated;
 
--- --- Cadastros: leitura para a empresa, escrita para gestor+ --------------
+-- --- Hardening de performance/RLS ----------------------------------------
+create index if not exists idx_checklist_itens_empresa
+  on public.checklist_itens (empresa_id);
+create index if not exists idx_convites_criado_por
+  on public.convites (criado_por)
+  where criado_por is not null;
+create index if not exists idx_estoque_empresa
+  on public.estoque (empresa_id);
+create index if not exists idx_setores_empresa
+  on public.setores (empresa_id);
+
 do $$
 declare t text;
 begin
   foreach t in array array['cidades','setores','equipamentos','materiais']
   loop
-    execute format('alter table %I enable row level security', t);
-    execute format('drop policy if exists "tenant_select" on %I', t);
-    execute format('drop policy if exists "tenant_write" on %I', t);
-    execute format('drop policy if exists "cadastro_write" on %I', t);
+    execute format('alter table public.%I enable row level security', t);
+    execute format('drop policy if exists "tenant_select" on public.%I', t);
+    execute format('drop policy if exists "tenant_write" on public.%I', t);
+    execute format('drop policy if exists "cadastro_write" on public.%I', t);
+    execute format('drop policy if exists "cadastro_insert" on public.%I', t);
+    execute format('drop policy if exists "cadastro_update" on public.%I', t);
+    execute format('drop policy if exists "cadastro_delete" on public.%I', t);
     execute format($p$
-      create policy "tenant_select" on %I for select to authenticated
+      create policy "tenant_select" on public.%I for select to authenticated
       using (empresa_id = public.empresa_atual() or public.eh_super_admin())
     $p$, t);
     execute format($p$
-      create policy "cadastro_write" on %I for all to authenticated
+      create policy "cadastro_insert" on public.%I for insert to authenticated
+      with check ((empresa_id = public.empresa_atual() and public.pode_gerir_cadastro()) or public.eh_super_admin())
+    $p$, t);
+    execute format($p$
+      create policy "cadastro_update" on public.%I for update to authenticated
       using ((empresa_id = public.empresa_atual() and public.pode_gerir_cadastro()) or public.eh_super_admin())
       with check ((empresa_id = public.empresa_atual() and public.pode_gerir_cadastro()) or public.eh_super_admin())
+    $p$, t);
+    execute format($p$
+      create policy "cadastro_delete" on public.%I for delete to authenticated
+      using ((empresa_id = public.empresa_atual() and public.pode_gerir_cadastro()) or public.eh_super_admin())
     $p$, t);
   end loop;
 end $$;
 
--- --- Operação: leitura para a empresa, escrita para tecnico+ --------------
 do $$
 declare t text;
 begin
   foreach t in array array['checklists','checklist_itens','estoque','movimentacoes','pendencias']
   loop
-    execute format('alter table %I enable row level security', t);
-    execute format('drop policy if exists "tenant_select" on %I', t);
-    execute format('drop policy if exists "tenant_write" on %I', t);
-    execute format('drop policy if exists "operacao_write" on %I', t);
+    execute format('alter table public.%I enable row level security', t);
+    execute format('drop policy if exists "tenant_select" on public.%I', t);
+    execute format('drop policy if exists "tenant_write" on public.%I', t);
+    execute format('drop policy if exists "operacao_write" on public.%I', t);
+    execute format('drop policy if exists "operacao_insert" on public.%I', t);
+    execute format('drop policy if exists "operacao_update" on public.%I', t);
+    execute format('drop policy if exists "operacao_delete" on public.%I', t);
     execute format($p$
-      create policy "tenant_select" on %I for select to authenticated
+      create policy "tenant_select" on public.%I for select to authenticated
       using (empresa_id = public.empresa_atual() or public.eh_super_admin())
     $p$, t);
     execute format($p$
-      create policy "operacao_write" on %I for all to authenticated
+      create policy "operacao_insert" on public.%I for insert to authenticated
+      with check ((empresa_id = public.empresa_atual() and public.pode_operar()) or public.eh_super_admin())
+    $p$, t);
+    execute format($p$
+      create policy "operacao_update" on public.%I for update to authenticated
       using ((empresa_id = public.empresa_atual() and public.pode_operar()) or public.eh_super_admin())
       with check ((empresa_id = public.empresa_atual() and public.pode_operar()) or public.eh_super_admin())
+    $p$, t);
+    execute format($p$
+      create policy "operacao_delete" on public.%I for delete to authenticated
+      using ((empresa_id = public.empresa_atual() and public.pode_operar()) or public.eh_super_admin())
     $p$, t);
   end loop;
 end $$;
 
--- --- Empresas ------------------------------------------------------------
-alter table empresas enable row level security;
-drop policy if exists "empresa_select" on empresas;
-drop policy if exists "empresa_insert" on empresas;
-drop policy if exists "empresa_update" on empresas;
-drop policy if exists "empresa_delete" on empresas;
-
-create policy "empresa_select" on empresas for select to authenticated
+alter table public.empresas enable row level security;
+drop policy if exists "empresa_select" on public.empresas;
+drop policy if exists "empresa_insert" on public.empresas;
+drop policy if exists "empresa_update" on public.empresas;
+drop policy if exists "empresa_delete" on public.empresas;
+create policy "empresa_select" on public.empresas for select to authenticated
   using (id = public.empresa_atual() or public.eh_super_admin());
-
-create policy "empresa_insert" on empresas for insert to authenticated
+create policy "empresa_insert" on public.empresas for insert to authenticated
   with check (public.eh_super_admin());
-
-create policy "empresa_update" on empresas for update to authenticated
+create policy "empresa_update" on public.empresas for update to authenticated
   using ((id = public.empresa_atual() and public.pode_administrar_empresa()) or public.eh_super_admin())
   with check ((id = public.empresa_atual() and public.pode_administrar_empresa()) or public.eh_super_admin());
-
-create policy "empresa_delete" on empresas for delete to authenticated
+create policy "empresa_delete" on public.empresas for delete to authenticated
   using (public.eh_super_admin());
 
--- --- Profiles ------------------------------------------------------------
-alter table profiles enable row level security;
-drop policy if exists "profile_select" on profiles;
-drop policy if exists "profile_update_proprio" on profiles;
-drop policy if exists "profile_admin" on profiles;
-
-create policy "profile_select" on profiles for select to authenticated
-  using (id = auth.uid() or empresa_id = public.empresa_atual() or public.eh_super_admin());
-
--- o próprio usuário edita seus dados; o trigger proteger_papel() bloqueia papel/empresa
-create policy "profile_update_proprio" on profiles for update to authenticated
-  using (id = auth.uid())
-  with check (id = auth.uid());
-
--- owner/super_admin administram os perfis da própria empresa
-create policy "profile_admin" on profiles for all to authenticated
-  using ((empresa_id = public.empresa_atual() and public.pode_administrar_empresa()) or public.eh_super_admin())
+alter table public.profiles enable row level security;
+drop policy if exists "profile_select" on public.profiles;
+drop policy if exists "profile_update_proprio" on public.profiles;
+drop policy if exists "profile_admin" on public.profiles;
+drop policy if exists "profile_update" on public.profiles;
+drop policy if exists "profile_admin_insert" on public.profiles;
+drop policy if exists "profile_admin_update" on public.profiles;
+drop policy if exists "profile_admin_delete" on public.profiles;
+create policy "profile_select" on public.profiles for select to authenticated
+  using (id = (select auth.uid()) or empresa_id = public.empresa_atual() or public.eh_super_admin());
+create policy "profile_admin_insert" on public.profiles for insert to authenticated
   with check ((empresa_id = public.empresa_atual() and public.pode_administrar_empresa()) or public.eh_super_admin());
+create policy "profile_update" on public.profiles for update to authenticated
+  using (id = (select auth.uid()) or ((empresa_id = public.empresa_atual() and public.pode_administrar_empresa()) or public.eh_super_admin()))
+  with check (id = (select auth.uid()) or ((empresa_id = public.empresa_atual() and public.pode_administrar_empresa()) or public.eh_super_admin()));
+create policy "profile_admin_delete" on public.profiles for delete to authenticated
+  using ((empresa_id = public.empresa_atual() and public.pode_administrar_empresa()) or public.eh_super_admin());
 
--- --- Convites ------------------------------------------------------------
-alter table convites enable row level security;
-drop policy if exists "convite_admin" on convites;
-create policy "convite_admin" on convites for all to authenticated
+alter table public.convites enable row level security;
+drop policy if exists "convite_admin" on public.convites;
+create policy "convite_admin" on public.convites for all to authenticated
   using ((empresa_id = public.empresa_atual() and public.pode_administrar_empresa()) or public.eh_super_admin())
   with check ((empresa_id = public.empresa_atual() and public.pode_administrar_empresa()) or public.eh_super_admin());
 

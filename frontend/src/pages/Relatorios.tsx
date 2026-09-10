@@ -8,7 +8,7 @@ import { supabase } from '../lib/supabase'
 import { useApp } from '../lib/app-state'
 import { useConsulta } from '../hooks/useConsulta'
 import { useToast } from '../components/Toast'
-import { Painel, Skeleton, StatCard, Vazio } from '../components/ui'
+import { ErroDados, Painel, Skeleton, StatCard, Vazio } from '../components/ui'
 import { baixarCsv, data, nf, titulo } from '../lib/format'
 import type { Checklist, Equipamento, Movimentacao, Pendencia } from '../lib/types'
 
@@ -25,7 +25,7 @@ export default function Relatorios() {
   const toast = useToast()
   const [periodo, setPeriodo] = useState('90')
 
-  const { dados, carregando } = useConsulta(async () => {
+  const { dados, carregando, erro, recarregar } = useConsulta(async () => {
     const desde = new Date(Date.now() - Number(periodo) * 86_400_000).toISOString()
     const escopo = <T,>(q: T) => (cidadeId ? (q as any).eq('cidade_id', cidadeId) : q)
 
@@ -137,6 +137,7 @@ export default function Relatorios() {
           <button className="btn" onClick={exportarRanking}><FileSpreadsheet size={16} />Equipamentos</button>
         </div>
       </div>
+      {erro && <ErroDados recarregar={recarregar} />}
 
       {carregando ? <Skeleton linhas={8} /> : (
         <>

@@ -5,7 +5,7 @@ import { useApp } from '../lib/app-state'
 import { useAuth } from '../auth/AuthProvider'
 import { useConsulta } from '../hooks/useConsulta'
 import { useToast } from '../components/Toast'
-import { Badge, Campo, ConfirmarExclusao, Modal, Skeleton, StatCard, Vazio } from '../components/ui'
+import { Badge, Campo, ConfirmarExclusao, ErroDados, Modal, Skeleton, StatCard, Vazio } from '../components/ui'
 import { diasDesde, dataHora, nf, titulo } from '../lib/format'
 import type { Equipamento, Pendencia, PrioridadePendencia, StatusPendencia } from '../lib/types'
 
@@ -39,7 +39,7 @@ export default function Pendencias() {
     return (data ?? []) as Equipamento[]
   }, [cidadeId])
 
-  const { dados, carregando, recarregar } = useConsulta<Pendencia[]>(async () => {
+  const { dados, carregando, erro, recarregar } = useConsulta<Pendencia[]>(async () => {
     let q = supabase.from('pendencias')
       .select('*, equipamentos(id, codigo, nome)')
       .order('aberta_em', { ascending: false })
@@ -117,6 +117,7 @@ export default function Pendencias() {
         <div><h1>Pendências</h1><p>Quadro por status — clique nos botões do cartão para avançar</p></div>
         <button className="btn primario" onClick={() => setCriando(true)}><Plus size={16} />Nova pendência</button>
       </div>
+      {erro && <ErroDados recarregar={recarregar} />}
 
       <div className="cards">
         <StatCard rotulo="Em aberto" valor={nf.format(kpis.abertas)} detalhe="aguardando resolução" tom="ambar" />

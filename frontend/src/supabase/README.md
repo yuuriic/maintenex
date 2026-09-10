@@ -17,6 +17,7 @@ Migrations reproduzíveis e ordenadas do schema Supabase.
 7. `0010_secoes_checklist.sql` — adiciona `checklist_itens.secao`
 8. `0011_grants_api_autenticada.sql` — normaliza grants mínimos para `authenticated`; RLS continua isolando por empresa/papel
 9. `0012_integridade_multi_tenant.sql` — adiciona preflight de integridade, FKs compostas com `empresa_id`, índices de suporte e remove `unaccent_simples(text)` da superfície RPC
+10. `20260910230508_harden_rls_performance.sql` — elimina políticas permissivas duplicadas, corrige `auth.uid()` init plan, adiciona índices FK e fixa `search_path` do utilitário de slug
 
 **Aplicação automática via Supabase CLI (somente para ambientes autorizados):**
 ```bash
@@ -51,7 +52,7 @@ Snapshot consolidado do estado final do schema.
 **Não deve substituir migrations incrementais** no fluxo normal de desenvolvimento.
 
 **Contém:**
-- Schema completo equivalente a `0001` + `0006`–`0012`
+- Schema completo equivalente a `0001` + `0006`–`0012` + hardening de performance/RLS da migration `20260910230508_harden_rls_performance.sql`
 - Trigger de sincronização `auth.users` → `profiles`
 - RLS completo, hardenings e integridade multi-tenant por FKs compostas
 - Conferência final do schema criado

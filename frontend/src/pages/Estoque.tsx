@@ -5,7 +5,7 @@ import { useApp } from '../lib/app-state'
 import { useAuth } from '../auth/AuthProvider'
 import { useConsulta } from '../hooks/useConsulta'
 import { useToast } from '../components/Toast'
-import { Badge, Campo, Modal, Painel, Skeleton, StatCard, Vazio } from '../components/ui'
+import { Badge, Campo, ErroDados, Modal, Painel, Skeleton, StatCard, Vazio } from '../components/ui'
 import { baixarCsv, dataHora, nf } from '../lib/format'
 import type { Estoque as EstoqueTipo, Material, Movimentacao, TipoMovimentacao } from '../lib/types'
 
@@ -30,6 +30,7 @@ export default function Estoque() {
   const {
     dados: materiais,
     carregando: carregandoMateriais,
+    erro: erroMateriais,
     recarregar: recarregarMateriais,
   } = useConsulta<Material[]>(async () => {
     let query = supabase.from('materiais').select('*').order('nome')
@@ -39,7 +40,7 @@ export default function Estoque() {
     return (data ?? []) as Material[]
   }, [empresaId])
 
-  const { dados: saldos, carregando, recarregar } = useConsulta<EstoqueTipo[]>(async () => {
+  const { dados: saldos, carregando, erro: erroSaldos, recarregar } = useConsulta<EstoqueTipo[]>(async () => {
     let q = supabase.from('estoque').select('*, materiais(*)')
     if (cidadeId) q = q.eq('cidade_id', cidadeId)
     const { data, error } = await q
@@ -47,7 +48,7 @@ export default function Estoque() {
     return (data ?? []) as EstoqueTipo[]
   }, [cidadeId])
 
-  const { dados: movimentacoes, recarregar: recarregarMov } = useConsulta<Movimentacao[]>(async () => {
+  const { dados: movimentacoes, erro: erroMovimentacoes, recarregar: recarregarMov } = useConsulta<Movimentacao[]>(async () => {
     let q = supabase.from('movimentacoes')
       .select('*, materiais(id, codigo, nome, unidade)')
       .order('criado_em', { ascending: false }).limit(25)
@@ -171,6 +172,11 @@ export default function Estoque() {
           <button className="btn primario" onClick={() => setMovModal(true)}><SlidersHorizontal size={16} />Movimentar</button>
         </div>
       </div>
+      {(erroMateriais || erroSaldos || erroMovimentacoes) && (
+        <ErroDados recarregar={async () => {
+          await Promise.all([recarregarMateriais(), recarregar(), recarregarMov()])
+        }} />
+      )}
 
       <div className="cards">
         <StatCard rotulo="Itens em estoque" valor={nf.format(kpis.itens)} detalhe="materiais com saldo" tom="azul" icone={<PackageSearch size={18} />} />

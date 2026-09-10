@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useApp } from '../lib/app-state'
 import { useConsulta } from '../hooks/useConsulta'
 import { useToast } from '../components/Toast'
-import { Badge, Campo, ConfirmarExclusao, Modal, Skeleton, StatCard, Vazio } from '../components/ui'
+import { Badge, Campo, ConfirmarExclusao, ErroDados, Modal, Skeleton, StatCard, Vazio } from '../components/ui'
 import { data, nf, titulo } from '../lib/format'
 import type { Empresa, Profile, StatusEmpresa } from '../lib/types'
 
@@ -24,7 +24,7 @@ export default function Empresas() {
   const [salvando, setSalvando] = useState(false)
   const [form, setForm] = useState({ nome: '', cnpj: '', email_principal: '', telefone: '' })
 
-  const { dados, carregando, recarregar } = useConsulta<{ empresas: Empresa[]; usuarios: Profile[] }>(async () => {
+  const { dados, carregando, erro, recarregar } = useConsulta<{ empresas: Empresa[]; usuarios: Profile[] }>(async () => {
     const [emp, usr] = await Promise.all([
       supabase.from('empresas').select('*').order('criado_em', { ascending: false }),
       supabase.from('profiles').select('id, empresa_id, nome, email, papel'),
@@ -98,6 +98,7 @@ export default function Empresas() {
         <div><h1>Empresas</h1><p>Administração da plataforma · {nf.format(lista.length)} empresa(s)</p></div>
         <button className="btn primario" onClick={() => setCriando(true)}><Plus size={16} />Nova empresa</button>
       </div>
+      {erro && <ErroDados recarregar={recarregar} />}
 
       <div className="cards">
         <StatCard tom="azul" rotulo="Empresas" valor={nf.format(lista.length)} detalhe="cadastradas" icone={<Building2 size={18} />} />

@@ -7,7 +7,7 @@ import { useApp } from '../lib/app-state'
 import { useAuth } from '../auth/AuthProvider'
 import { useConsulta } from '../hooks/useConsulta'
 import { useToast } from '../components/Toast'
-import { Badge, Campo, ConfirmarExclusao, Painel, Vazio } from '../components/ui'
+import { Badge, Campo, ConfirmarExclusao, ErroDados, Painel, Vazio } from '../components/ui'
 import { data, titulo } from '../lib/format'
 import type { Cidade, Convite, Empresa, PapelUsuario, Profile, Setor } from '../lib/types'
 
@@ -40,7 +40,7 @@ export default function Configuracoes() {
 
   useEffect(() => { setNome(profile?.nome ?? '') }, [profile?.nome])
 
-  const { dados: empresa, recarregar: recarregarEmpresa } = useConsulta<Empresa | null>(async () => {
+  const { dados: empresa, erro: erroEmpresa, recarregar: recarregarEmpresa } = useConsulta<Empresa | null>(async () => {
     if (!empresaId) return null
     const { data: linha, error } = await supabase.from('empresas').select('*').eq('id', empresaId).maybeSingle()
     if (error) throw error
@@ -57,14 +57,14 @@ export default function Configuracoes() {
     })
   }, [empresa])
 
-  const { dados: equipe, recarregar: recarregarEquipe } = useConsulta<Profile[]>(async () => {
+  const { dados: equipe, erro: erroEquipe, recarregar: recarregarEquipe } = useConsulta<Profile[]>(async () => {
     if (!empresaId) return []
     const { data: linhas, error } = await supabase.from('profiles').select('*').eq('empresa_id', empresaId).order('nome')
     if (error) throw error
     return (linhas ?? []) as Profile[]
   }, [empresaId])
 
-  const { dados: convites, recarregar: recarregarConvites } = useConsulta<Convite[]>(async () => {
+  const { dados: convites, erro: erroConvites, recarregar: recarregarConvites } = useConsulta<Convite[]>(async () => {
     if (!empresaId) return []
     const { data: linhas, error } = await supabase
       .from('convites').select('*').eq('empresa_id', empresaId).order('criado_em', { ascending: false })
@@ -195,6 +195,11 @@ export default function Configuracoes() {
         </div>
         <Badge tom={tomPapel[profile?.papel ?? 'leitor']}>{titulo(profile?.papel ?? 'leitor')}</Badge>
       </div>
+      {(erroEmpresa || erroEquipe || erroConvites) && (
+        <ErroDados recarregar={async () => {
+          await Promise.all([recarregarEmpresa(), recarregarEquipe(), recarregarConvites()])
+        }} />
+      )}
 
       <div className="abas" role="tablist">
         {abas.map((a) => (
