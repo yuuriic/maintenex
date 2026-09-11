@@ -18,6 +18,7 @@ Migrations reproduzíveis e ordenadas do schema Supabase.
 8. `0011_grants_api_autenticada.sql` — normaliza grants mínimos para `authenticated`; RLS continua isolando por empresa/papel
 9. `0012_integridade_multi_tenant.sql` — adiciona preflight de integridade, FKs compostas com `empresa_id`, índices de suporte e remove `unaccent_simples(text)` da superfície RPC
 10. `20260910230508_harden_rls_performance.sql` — elimina políticas permissivas duplicadas, corrige `auth.uid()` init plan, adiciona índices FK e fixa `search_path` do utilitário de slug
+11. `20260910235534_dashboard_personalizacao.sql` — adiciona layout de dashboard por empresa, catálogo de 62 visuais no frontend e RLS administrativo
 
 **Aplicação automática via Supabase CLI (somente para ambientes autorizados):**
 ```bash
@@ -52,9 +53,9 @@ Snapshot consolidado do estado final do schema.
 **Não deve substituir migrations incrementais** no fluxo normal de desenvolvimento.
 
 **Contém:**
-- Schema completo equivalente a `0001` + `0006`–`0012` + hardening de performance/RLS da migration `20260910230508_harden_rls_performance.sql`
+- Schema completo equivalente a `0001` + `0006`–`0012` + hardening de performance/RLS das migrations `20260910230508_harden_rls_performance.sql` e `20260910235534_dashboard_personalizacao.sql`
 - Trigger de sincronização `auth.users` → `profiles`
-- RLS completo, hardenings e integridade multi-tenant por FKs compostas
+- RLS completo, hardenings, integridade multi-tenant por FKs compostas e configuração de dashboard por empresa
 - Conferência final do schema criado
 
 ### `testes/`
@@ -158,7 +159,7 @@ Nesta etapa, `movimentacoes.equipamento_id` e `pendencias.equipamento_id` são v
 
 PostgREST precisa de grants SQL para alcançar uma tabela, mas esses grants não substituem autorização por linha. No Maintenex:
 
-- `authenticated` deve ter somente `SELECT`, `INSERT`, `UPDATE` e `DELETE` nas 12 tabelas públicas da aplicação.
+- `authenticated` deve ter somente `SELECT`, `INSERT`, `UPDATE` e `DELETE` nas 13 tabelas públicas da aplicação.
 - `authenticated` não deve ter `TRUNCATE`, `REFERENCES`, `TRIGGER` ou `MAINTAIN` nas tabelas da aplicação; esses privilégios não são usados pelo frontend/PostgREST atual para leitura e escrita de registros.
 - `anon` não deve ter grants em tabelas ou sequences da aplicação.
 - Toda tabela pública nova da aplicação precisa de RLS habilitada, policies definidas e grants mínimos antes de ser considerada pronta.
@@ -204,9 +205,9 @@ SELECT count(*) FROM information_schema.tables
 WHERE table_schema = 'public' AND table_name IN (
   'empresas','profiles','convites','cidades','setores',
   'equipamentos','checklists','checklist_itens','materiais',
-  'estoque','movimentacoes','pendencias'
+  'estoque','movimentacoes','pendencias','dashboard_configuracoes'
 );
--- Esperado: 12
+-- Esperado: 13
 
 -- Validar trigger crítico de sincronização
 SELECT exists (
@@ -231,10 +232,10 @@ WHERE table_schema = 'public'
   AND table_name IN (
     'empresas','profiles','convites','cidades','setores',
     'equipamentos','checklists','checklist_itens','materiais',
-    'estoque','movimentacoes','pendencias'
+    'estoque','movimentacoes','pendencias','dashboard_configuracoes'
   )
 ORDER BY table_name, privilege_type;
--- Esperado por tabela: DELETE, INSERT, SELECT, UPDATE
+-- Esperado por tabela: grants do domínio; dashboard_configuracoes usa INSERT, SELECT, UPDATE
 -- Não esperado: TRUNCATE, REFERENCES, TRIGGER, MAINTAIN
 
 -- Validar que anon não tem grants nas tabelas da aplicação
@@ -245,7 +246,7 @@ WHERE table_schema = 'public'
   AND table_name IN (
     'empresas','profiles','convites','cidades','setores',
     'equipamentos','checklists','checklist_itens','materiais',
-    'estoque','movimentacoes','pendencias'
+    'estoque','movimentacoes','pendencias','dashboard_configuracoes'
   );
 -- Esperado: 0 linhas
 
@@ -270,7 +271,7 @@ Antes de considerar staging pronto:
 - [ ] Migrations aplicadas sem scripts administrativos no fluxo automático
 - [ ] Trigger `z_sync_auth_user_verification` confirmado
 - [ ] Função `sincronizar_verificacao_usuario()` confirmada
-- [ ] 12 tabelas públicas validadas
+- [ ] 13 tabelas públicas validadas
 - [ ] RLS ativo e policies presentes em todas as tabelas públicas da aplicação
 - [ ] Grants SQL mínimos para `authenticated` aplicados (`SELECT`, `INSERT`, `UPDATE`, `DELETE`)
 - [ ] Sem `TRUNCATE`, `REFERENCES`, `TRIGGER` ou `MAINTAIN` para `authenticated` nas tabelas da aplicação

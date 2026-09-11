@@ -8,10 +8,12 @@ import { useAuth } from '../auth/AuthProvider'
 import { useConsulta } from '../hooks/useConsulta'
 import { useToast } from '../components/Toast'
 import { Badge, Campo, ConfirmarExclusao, ErroDados, Painel, Vazio } from '../components/ui'
+import DashboardCustomizer from '../components/DashboardCustomizer'
+import { DASHBOARD_LAYOUT_PADRAO, normalizarDashboardLayout, type DashboardLayout } from '../lib/dashboard-config'
 import { data, titulo } from '../lib/format'
 import type { Cidade, Convite, Empresa, PapelUsuario, Profile, Setor } from '../lib/types'
 
-type Aba = 'perfil' | 'empresa' | 'cidades' | 'setores' | 'equipe'
+type Aba = 'dashboard' | 'perfil' | 'empresa' | 'cidades' | 'setores' | 'equipe'
 
 const PAPEIS_ATRIBUIVEIS: { valor: PapelUsuario; rotulo: string; descricao: string }[] = [
   { valor: 'owner', rotulo: 'Responsável', descricao: 'Administra a empresa e convida usuários' },
@@ -31,6 +33,9 @@ export default function Configuracoes() {
   const [aba, setAba] = useState<Aba>('perfil')
   const [nome, setNome] = useState(profile?.nome ?? '')
   const [salvando, setSalvando] = useState(false)
+  const [salvandoDashboard, setSalvandoDashboard] = useState(false)
+  const [erroSalvarDashboard, setErroSalvarDashboard] = useState<string | null>(null)
+  const [dashboardLayout, setDashboardLayout] = useState<DashboardLayout | null>(null)
   const [novaCidade, setNovaCidade] = useState({ nome: '', uf: '' })
   const [novoSetor, setNovoSetor] = useState({ nome: '', responsavel: '' })
   const [convite, setConvite] = useState({ email: '', papel: 'tecnico' as PapelUsuario })
@@ -72,6 +77,23 @@ export default function Configuracoes() {
     return (linhas ?? []) as Convite[]
   }, [empresaId])
 
+  const {
+    dados: dashboardConfig,
+    carregando: carregandoDashboard,
+    erro: erroDashboard,
+    recarregar: recarregarDashboard,
+  } = useConsulta<DashboardLayout | null>(async () => {
+    if (!empresaId || !podeAdministrar) return null
+    const { data: linha, error } = await supabase
+      .from('dashboard_configuracoes').select('layout').eq('empresa_id', empresaId).maybeSingle()
+    if (error) throw error
+    return normalizarDashboardLayout((linha as { layout?: unknown } | null)?.layout)
+  }, [empresaId, podeAdministrar])
+
+  useEffect(() => {
+    if (dashboardConfig) setDashboardLayout(dashboardConfig)
+  }, [dashboardConfig])
+
   async function salvarPerfil() {
     setSalvando(true)
     try {
@@ -97,6 +119,25 @@ export default function Configuracoes() {
     if (error) { toast.erro(error.message); return }
     toast.sucesso('Dados da empresa atualizados.')
     void recarregarEmpresa()
+  }
+
+  async function salvarDashboard() {
+    if (!empresaId || !dashboardLayout || !podeAdministrar) return
+    setSalvandoDashboard(true)
+    setErroSalvarDashboard(null)
+    const { error } = await supabase.from('dashboard_configuracoes').upsert({
+      empresa_id: empresaId,
+      layout: dashboardLayout,
+      atualizado_por: user?.id ?? null,
+    }, { onConflict: 'empresa_id' })
+    setSalvandoDashboard(false)
+    if (error) {
+      setErroSalvarDashboard(error.message)
+      toast.erro(error.message)
+      return
+    }
+    toast.sucesso('Dashboard personalizado salvo para a empresa.')
+    void recarregarDashboard()
   }
 
   async function criarCidade() {
@@ -179,6 +220,7 @@ export default function Configuracoes() {
   }
 
   const abas: { chave: Aba; rotulo: string }[] = [
+    ...(podeAdministrar ? [{ chave: 'dashboard' as const, rotulo: 'Dashboard' }] : []),
     { chave: 'perfil', rotulo: 'Meu perfil' },
     { chave: 'empresa', rotulo: 'Empresa' },
     { chave: 'cidades', rotulo: 'Cidades' },
@@ -209,6 +251,18 @@ export default function Configuracoes() {
           </button>
         ))}
       </div>
+
+      {aba === 'dashboard' && podeAdministrar && (
+        carregandoDashboard ? <div className="skeleton-lista"><div className="skeleton" /><div className="skeleton" /><div className="skeleton" /></div> : (
+          <DashboardCustomizer
+            layout={dashboardLayout ?? DASHBOARD_LAYOUT_PADRAO}
+            salvando={salvandoDashboard}
+            erro={erroDashboard ?? erroSalvarDashboard}
+            onChange={setDashboardLayout}
+            onSalvar={() => void salvarDashboard()}
+          />
+        )
+      )}
 
       {aba === 'perfil' && (
         <div className="config-grid">
