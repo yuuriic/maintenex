@@ -281,6 +281,7 @@ nav { display: grid; gap: 3px; }
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-gutter: stable;
+  align-content: start;
 }
 nav a, .nav-acao {
   display: flex; align-items: center; gap: 10px;
