@@ -56,6 +56,24 @@ test('responsável personaliza e persiste o Dashboard da empresa', async ({ page
   await expect(page.getByText('Dashboard personalizado salvo para a empresa.')).toBeVisible();
 });
 
+test('responsável gerencia quadros sem sair da configuração', async ({ page }) => {
+  await loginComoOwner(page);
+  await page.goto('/app/configuracoes');
+  await page.getByRole('tab', { name: 'Dashboard' }).click();
+
+  await page.getByRole('button', { name: /^Radar Perfil de categorias/ }).click();
+  await expect(page.getByText('9/24')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Mover Radar para cima' })).toBeVisible();
+  await page.getByRole('button', { name: 'Mover Radar para cima' }).click();
+  await page.getByRole('button', { name: 'Ocultar Radar' }).click();
+  await expect(page.getByRole('button', { name: 'Mostrar Radar' })).toBeVisible();
+  await page.getByRole('button', { name: 'Remover Radar' }).click();
+  await expect(page.getByText('8/24')).toBeVisible();
+
+  await page.getByLabel('Buscar visual').fill('nao-existe-visual');
+  await expect(page.getByText('Nenhum visual encontrado.')).toBeVisible();
+});
+
 test('técnico vê aviso de convites restritos na aba Equipe', async ({ page }) => {
   await loginComoTecnico(page);
   await page.goto('/app/configuracoes');
