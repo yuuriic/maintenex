@@ -15,7 +15,7 @@ const rotuloFamilia: Record<string, string> = {
   scorecard: 'Indicadores', trend: 'Tendências', comparison: 'Comparação', composition: 'Composição',
   progression: 'Progressão', relationship: 'Relações', matrix: 'Matrizes', distribution: 'Distribuição',
   benchmark: 'Metas', decomposition: 'Decomposição', timeline: 'Linha do tempo', financial: 'Financeiro',
-  custom: 'Personalizados', geospatial: 'Geográfico', detail: 'Detalhamento',
+  custom: 'Personalizados', geospatial: 'Geográfico', detail: 'Detalhamento', operations: 'Operações',
 }
 
 interface Props {
@@ -125,6 +125,7 @@ export default function DashboardCustomizer({ layout, salvando, erro, onChange, 
 
                 <div className="dashboard-builder-fields">
                   <label className="campo"><span>Visual</span><select aria-label={`Visual do quadro ${index + 1}`} value={widget.type} disabled={salvando} onChange={(event) => alterarTipo(widget, event.target.value as DashboardWidgetType)}>
+                    {!DASHBOARD_CATALOG.some((item) => item.type === widget.type) && <option value={widget.type}>{catalogo.label} (nativo)</option>}
                     {DASHBOARD_CATALOG.map((item) => <option key={item.type} value={item.type}>{item.label}</option>)}
                   </select></label>
                   <label className="campo"><span>Título</span><input aria-label={`Título do quadro ${index + 1}`} maxLength={80} value={widget.titulo} disabled={salvando} onChange={(event) => onChange(atualizarWidget(layout, widget.id, { titulo: event.target.value }))} /></label>
