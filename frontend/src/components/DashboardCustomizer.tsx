@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import {
-  ArrowDown, ArrowUp, Eye, EyeOff, GripVertical, LayoutDashboard, Plus, RotateCcw, Save, Search, Trash2,
+  Activity, ArrowDown, ArrowUp, BarChart3, ChevronDown, Eye, EyeOff, Gauge, GripVertical, LayoutDashboard,
+  List, Pencil, PieChart, Plus, RotateCcw, Save, Search, SlidersHorizontal, Table2, Target, Trash2, TrendingUp,
+  type LucideIcon,
 } from 'lucide-react'
 import { Badge } from './ui'
 import {
@@ -33,9 +35,85 @@ function atualizarWidget(layout: DashboardLayout, id: string, patch: Partial<Das
   }
 }
 
+const iconesFamilia: Record<string, LucideIcon> = {
+  scorecard: Gauge,
+  trend: Activity,
+  comparison: BarChart3,
+  composition: PieChart,
+  progression: TrendingUp,
+  benchmark: Target,
+  detail: Table2,
+  operations: List,
+  custom: SlidersHorizontal,
+}
+
+function IconeFamilia({ familia, size = 16 }: { familia: string; size?: number }) {
+  const Icone = iconesFamilia[familia] ?? BarChart3
+  return <Icone size={size} strokeWidth={2} />
+}
+
+function nomeMetrica(metric: DashboardMetric) {
+  return DASHBOARD_METRICS.find((item) => item.value === metric)?.label ?? metric
+}
+
+function nomeDimensao(dimension: DashboardDimension) {
+  return DASHBOARD_DIMENSIONS.find((item) => item.value === dimension)?.label ?? dimension
+}
+
+function nomeLargura(largura: DashboardWidth) {
+  return largura === 'full' ? 'Linha inteira' : largura === 'meio' ? '1/2 da linha' : '1/3 da linha'
+}
+
+function VisualPreview({ familia, compacto = false }: { familia: string; compacto?: boolean }) {
+  return (
+    <div className={`dashboard-visual-preview dashboard-visual-preview--${familia} ${compacto ? 'compacto' : ''}`} aria-hidden="true">
+      <span className="dashboard-visual-preview-icon"><IconeFamilia familia={familia} size={compacto ? 15 : 18} /></span>
+      <span className="dashboard-visual-preview-sample"><i /><i /><i /><i /></span>
+    </div>
+  )
+}
+
+function DashboardPreview({ layout }: { layout: DashboardLayout }) {
+  const widgetsVisiveis = layout.widgets.filter((widget) => widget.visivel)
+
+  return (
+    <section className="dashboard-layout-preview" aria-label="Pré-visualização do dashboard">
+      <div className="dashboard-layout-preview-head">
+        <div>
+          <span className="dashboard-section-kicker">Visão do painel</span>
+          <h3>Como vai ficar para a equipe</h3>
+          <p>A ordem abaixo é a mesma ordem exibida no Dashboard.</p>
+        </div>
+        <span className="dashboard-preview-status"><span />{widgetsVisiveis.length} quadros visíveis</span>
+      </div>
+
+      {!widgetsVisiveis.length ? <div className="empty compact">Ative pelo menos um quadro para visualizar o painel.</div> : (
+        <div className="dashboard-layout-preview-grid">
+          {widgetsVisiveis.map((widget, index) => {
+            const catalogo = catalogoDoDashboard(widget.type)
+            return (
+              <article className={`dashboard-layout-preview-card dashboard-layout-preview-card--${widget.largura}`} key={widget.id}>
+                <VisualPreview familia={catalogo.family} />
+                <div className="dashboard-layout-preview-card-body">
+                  <span className="dashboard-layout-preview-index">{index + 1}</span>
+                  <div>
+                    <strong>{widget.titulo}</strong>
+                    <small>{catalogo.label} · {nomeMetrica(widget.metric)}</small>
+                  </div>
+                </div>
+              </article>
+            )
+          })}
+        </div>
+      )}
+    </section>
+  )
+}
+
 export default function DashboardCustomizer({ layout, salvando, erro, onChange, onSalvar }: Props) {
   const [busca, setBusca] = useState('')
   const [familia, setFamilia] = useState('todas')
+  const [widgetEmEdicao, setWidgetEmEdicao] = useState<string | null | 'inicial'>('inicial')
   const termos = busca.trim().toLocaleLowerCase('pt-BR')
   const catalogoFiltrado = useMemo(() => DASHBOARD_CATALOG.filter((item) => {
     const correspondeFamilia = familia === 'todas' || item.family === familia
@@ -53,7 +131,9 @@ export default function DashboardCustomizer({ layout, salvando, erro, onChange, 
 
   function adicionar(type: DashboardWidgetType) {
     if (layout.widgets.length >= MAX_DASHBOARD_WIDGETS) return
-    onChange({ ...layout, widgets: [...layout.widgets, novoWidget(type, layout.widgets.length)] })
+    const widget = novoWidget(type, layout.widgets.length)
+    onChange({ ...layout, widgets: [...layout.widgets, widget] })
+    setWidgetEmEdicao(widget.id)
   }
 
   function alterarTipo(widget: DashboardWidget, type: DashboardWidgetType) {
@@ -66,6 +146,7 @@ export default function DashboardCustomizer({ layout, salvando, erro, onChange, 
   }
 
   function remover(id: string) {
+    if (widgetEmEdicao === id) setWidgetEmEdicao(null)
     onChange({ ...layout, widgets: layout.widgets.filter((widget) => widget.id !== id) })
   }
 
@@ -91,10 +172,13 @@ export default function DashboardCustomizer({ layout, salvando, erro, onChange, 
       </div>
 
       <div className="dashboard-customizer-help">
+        <span className="dashboard-customizer-help-icon"><LayoutDashboard size={16} /></span>
         <strong>Biblioteca SalesOps + Grafana</strong>
         <span>Os 62 visuais foram adaptados para os dados de manutenção e continuam protegidos pelo escopo da empresa.</span>
       </div>
       {erro && <div className="alerta erro" role="alert">{erro}</div>}
+
+      <DashboardPreview layout={layout} />
 
       <div className="dashboard-customizer-grid">
         <section className="dashboard-builder-list" aria-label="Quadros configurados">
@@ -107,12 +191,19 @@ export default function DashboardCustomizer({ layout, salvando, erro, onChange, 
             <div className="empty compact">Adicione um quadro da biblioteca ao lado.</div>
           ) : layout.widgets.map((widget, index) => {
             const catalogo = catalogoDoDashboard(widget.type)
+            const idEmEdicaoInvalido = typeof widgetEmEdicao === 'string' && widgetEmEdicao !== 'inicial'
+              && !layout.widgets.some((item) => item.id === widgetEmEdicao)
+            const expandido = widgetEmEdicao === 'inicial' || idEmEdicaoInvalido ? index === 0 : widgetEmEdicao === widget.id
             return (
-              <article className={`dashboard-builder-card ${widget.visivel ? '' : 'oculto'}`} key={widget.id}>
+              <article className={`dashboard-builder-card ${widget.visivel ? '' : 'oculto'} ${expandido ? 'expandido' : ''}`} key={widget.id}>
                 <div className="dashboard-builder-card-top">
-                  <GripVertical size={16} className="dashboard-drag-icon" aria-hidden="true" />
+                  <VisualPreview familia={catalogo.family} compacto />
+                  <GripVertical size={15} className="dashboard-drag-icon" aria-hidden="true" />
                   <span className="dashboard-builder-index">{index + 1}</span>
-                  <div className="dashboard-builder-name"><strong>{catalogo.label}</strong><small>{rotuloFamilia[catalogo.family] ?? catalogo.family}</small></div>
+                  <div className="dashboard-builder-name"><strong>{widget.titulo}</strong><small>{catalogo.label} · {rotuloFamilia[catalogo.family] ?? catalogo.family}</small></div>
+                  <button className="dashboard-builder-edit" type="button" aria-expanded={expandido} disabled={salvando} onClick={() => setWidgetEmEdicao(expandido ? null : widget.id)}>
+                    <Pencil size={14} />{expandido ? 'Fechar' : 'Editar'}<ChevronDown size={14} />
+                  </button>
                   <div className="dashboard-builder-order">
                     <button className="icone-btn" type="button" aria-label={`Mover ${catalogo.label} para cima`} disabled={index === 0 || salvando} onClick={() => mover(index, -1)}><ArrowUp size={15} /></button>
                     <button className="icone-btn" type="button" aria-label={`Mover ${catalogo.label} para baixo`} disabled={index === layout.widgets.length - 1 || salvando} onClick={() => mover(index, 1)}><ArrowDown size={15} /></button>
@@ -123,7 +214,14 @@ export default function DashboardCustomizer({ layout, salvando, erro, onChange, 
                   </div>
                 </div>
 
-                <div className="dashboard-builder-fields">
+                <div className="dashboard-builder-summary">
+                  <span><b>Dados</b>{nomeMetrica(widget.metric)}</span>
+                  <span><b>Dimensão</b>{nomeDimensao(widget.dimension)}</span>
+                  <span><b>Tamanho</b>{nomeLargura(widget.largura)}</span>
+                  <span className={widget.visivel ? 'status-ativo' : 'status-oculto'}><b>Status</b>{widget.visivel ? 'Visível' : 'Oculto'}</span>
+                </div>
+
+                {expandido && <div className="dashboard-builder-fields">
                   <label className="campo"><span>Visual</span><select aria-label={`Visual do quadro ${index + 1}`} value={widget.type} disabled={salvando} onChange={(event) => alterarTipo(widget, event.target.value as DashboardWidgetType)}>
                     {!DASHBOARD_CATALOG.some((item) => item.type === widget.type) && <option value={widget.type}>{catalogo.label} (nativo)</option>}
                     {DASHBOARD_CATALOG.map((item) => <option key={item.type} value={item.type}>{item.label}</option>)}
@@ -139,7 +237,7 @@ export default function DashboardCustomizer({ layout, salvando, erro, onChange, 
                     <option value="terco">1/3 da linha</option><option value="meio">1/2 da linha</option><option value="full">Linha inteira</option>
                   </select></label>
                   <label className="campo"><span>Meta opcional</span><input aria-label={`Meta do quadro ${index + 1}`} type="number" min="0" step="0.01" value={widget.meta ?? ''} disabled={salvando} onChange={(event) => onChange(atualizarWidget(layout, widget.id, { meta: event.target.value === '' ? null : Number(event.target.value) }))} /></label>
-                </div>
+                </div>}
               </article>
             )
           })}
@@ -159,6 +257,7 @@ export default function DashboardCustomizer({ layout, salvando, erro, onChange, 
           <div className="dashboard-catalog-items">
             {catalogoFiltrado.map((item) => (
               <button className="dashboard-catalog-item" type="button" key={item.type} disabled={salvando || layout.widgets.length >= MAX_DASHBOARD_WIDGETS} onClick={() => adicionar(item.type)} title={item.description}>
+                <span className="dashboard-catalog-item-icon"><IconeFamilia familia={item.family} size={15} /></span>
                 <span><strong>{item.label}</strong><small>{item.description}</small></span><Plus size={15} />
               </button>
             ))}
