@@ -22,11 +22,34 @@ const conviteFalho = {
   atualizado_em: '2026-01-01T00:00:00Z',
 };
 
+type ChamadaConvite = { action?: string };
+
 async function mockOwnerSession(page: Page, options: {
   convites?: unknown[];
   inviteResponse?: Record<string, unknown>;
+  inviteStatus?: number;
   onInvite?: (body: Record<string, unknown>) => void;
+  chamadas?: ChamadaConvite[];
+  profile?: Record<string, unknown>;
+  signup?: boolean;
 } = {}) {
+  if (options.signup) {
+    await page.route('**/auth/v1/signup', async (route) => {
+      const body = route.request().postDataJSON() as { email?: string; data?: Record<string, unknown> };
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          access_token: 'token-convidado-e2e',
+          refresh_token: 'refresh-convidado-e2e',
+          token_type: 'bearer',
+          expires_in: 3600,
+          user: { id: OWNER_ID, email: body.email, user_metadata: body.data ?? {} },
+        }),
+      });
+    });
+  }
+
   await page.route('**/auth/v1/token?grant_type=password', async (route) => {
     await route.fulfill({
       status: 200,
@@ -49,7 +72,7 @@ async function mockOwnerSession(page: Page, options: {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({
+      body: JSON.stringify(options.profile ?? {
         id: OWNER_ID,
         empresa_id: EMPRESA_ID,
         nome: 'E2E Owner',
@@ -97,9 +120,10 @@ async function mockOwnerSession(page: Page, options: {
   });
   await page.route('**/functions/v1/team-invites', async (route) => {
     const body = route.request().postDataJSON() as Record<string, unknown>;
+    options.chamadas?.push({ action: body.action as string | undefined });
     options.onInvite?.(body);
     await route.fulfill({
-      status: 200,
+      status: options.inviteStatus ?? 200,
       contentType: 'application/json',
       body: JSON.stringify(options.inviteResponse ?? {
         status: 'dry_run',
@@ -186,4 +210,89 @@ test('link seguro de convite pede e-mail convidado e bloqueia empresa', async ({
   await expect(page.getByLabel('E-mail')).toHaveValue('');
   await expect(page.getByLabel('E-mail')).toBeEditable();
   await expect(page.getByLabel('Empresa')).toHaveCount(0);
+});
+
+async function preencherCadastroConvidado(page: Page, email: string) {
+  await page.getByLabel('Nome').fill('Convidado E2E');
+  await page.getByLabel('E-mail').fill(email);
+  await page.getByLabel('Telefone').fill('11999990000');
+  await page.locator('#senha-cadastro').fill('MaintenexE2E!123');
+  await page.getByLabel('Confirmar senha').fill('MaintenexE2E!123');
+  await page.locator('form').getByRole('button', { name: 'Criar conta' }).click();
+}
+
+test('cadastro por convite entra no app sem chamar accept e sem erro', async ({ page }) => {
+  const chamadas: ChamadaConvite[] = [];
+  await mockOwnerSession(page, { signup: true, chamadas });
+
+  await page.goto('/login?modo=cadastrar&convite=token-e2e');
+  await expect(page.getByLabel('Empresa')).toHaveCount(0);
+  await preencherCadastroConvidado(page, 'convidado-e2e@example.test');
+
+  await page.waitForURL('**/app', { timeout: 15_000 });
+  await expect(page.getByText('Não foi possível aceitar o convite')).toHaveCount(0);
+  expect(chamadas.filter((c) => c.action === 'accept')).toHaveLength(0);
+});
+
+test('cadastro por convite com perfil sem empresa usa o aceite explícito uma única vez', async ({ page }) => {
+  const chamadas: ChamadaConvite[] = [];
+  await mockOwnerSession(page, {
+    signup: true,
+    chamadas,
+    inviteResponse: { status: 'aceito', mensagem: 'Convite aceito. Você já pode acessar a equipe.' },
+    profile: {
+      id: OWNER_ID, empresa_id: null, nome: 'Convidado E2E', email: 'orfao-e2e@example.test', telefone: null,
+      email_verificado: true, papel: 'leitor', cidade_id: null, avatar_url: null, ativo: true,
+      criado_em: '2026-01-01T00:00:00Z', empresas: null,
+    },
+  });
+
+  await page.goto('/login?modo=cadastrar&convite=token-e2e');
+  await preencherCadastroConvidado(page, 'orfao-e2e@example.test');
+
+  await page.waitForURL('**/app', { timeout: 15_000 });
+  expect(chamadas.filter((c) => c.action === 'accept')).toHaveLength(1);
+});
+
+test('usuário já logado não aceita convite automaticamente', async ({ page }) => {
+  const chamadas: ChamadaConvite[] = [];
+  await mockOwnerSession(page, { chamadas });
+  await loginComoOwner(page);
+
+  await page.goto('/login?modo=cadastrar&convite=token-e2e');
+  await expect(page.getByRole('heading', { name: 'Você recebeu um convite de equipe' })).toBeVisible();
+  await expect(page.getByText('e2e-owner@example.test')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Aceitar com esta conta' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Sair e usar o e-mail convidado' })).toBeVisible();
+  expect(chamadas.filter((c) => c.action === 'accept')).toHaveLength(0);
+});
+
+test('usuário já logado aceita somente ao clicar em "Aceitar com esta conta"', async ({ page }) => {
+  const chamadas: ChamadaConvite[] = [];
+  await mockOwnerSession(page, {
+    chamadas,
+    inviteResponse: { status: 'aceito', mensagem: 'Convite aceito. Você já pode acessar a equipe.' },
+  });
+  await loginComoOwner(page);
+
+  await page.goto('/login?modo=cadastrar&convite=token-e2e');
+  await page.getByRole('button', { name: 'Aceitar com esta conta' }).click();
+
+  await page.waitForURL('**/app', { timeout: 15_000 });
+  expect(chamadas.filter((c) => c.action === 'accept')).toHaveLength(1);
+});
+
+test('convite inválido continua mostrando o erro do servidor no aceite explícito', async ({ page }) => {
+  await mockOwnerSession(page, {
+    inviteStatus: 400,
+    inviteResponse: { error: 'Convite inválido, expirado ou já aceito.' },
+  });
+  await loginComoOwner(page);
+
+  await page.goto('/login?modo=cadastrar&convite=token-invalido');
+  await page.getByRole('button', { name: 'Aceitar com esta conta' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Não foi possível aceitar o convite' })).toBeVisible();
+  await expect(page.getByText('Convite inválido, expirado ou já aceito.')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Ir para o app' })).toBeVisible();
 });

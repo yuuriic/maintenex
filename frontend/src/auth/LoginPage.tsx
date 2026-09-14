@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type SubmitEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type SubmitEvent } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Building2, Eye, EyeOff, Loader2, Lock, Mail, Phone, ShieldCheck, User } from 'lucide-react'
 import { aplicarSeo } from '../lib/seo'
@@ -40,7 +40,7 @@ const destaques = [
 ]
 
 export default function LoginPage() {
-  const { session, recuperandoSenha, entrar, cadastrar, confirmarCadastro, reenviarCodigoCadastro, recuperarSenha, recarregarPerfil } = useAuth()
+  const { session, recuperandoSenha, entrar, cadastrar, confirmarCadastro, reenviarCodigoCadastro, recuperarSenha, recarregarPerfil, sair } = useAuth()
   const toast = useToast()
   const navigate = useNavigate()
   const [params] = useSearchParams()
@@ -61,6 +61,11 @@ export default function LoginPage() {
   const [reenvios, setReenvios] = useState(0)
   const [proximoReenvio, setProximoReenvio] = useState(0)
   const [agora, setAgora] = useState(Date.now())
+  // Distingue a sessão criada pelo cadastro feito nesta própria tela (o
+  // handle_new_user já aceitou o convite) de uma sessão que já existia antes
+  // de abrir o link, que só aceita o convite com ação explícita do usuário.
+  const cadastroPorConviteRef = useRef(false)
+  const conclusaoIniciadaRef = useRef(false)
 
   useEffect(() => {
     if (proximoReenvio <= Date.now()) return
@@ -77,17 +82,42 @@ export default function LoginPage() {
     })
   }, [])
 
-  useEffect(() => {
-    if (!session || !temConvite) return
-    let ativo = true
+  // Aceite explícito para quem já tinha conta/sessão (usuário existente).
+  const aceitarComEstaConta = useCallback(async () => {
     setEnviando(true)
     setErro(null)
-    void aceitarConviteEquipe(conviteToken).then(async () => {
-      if (!ativo) return
+    try {
+      await aceitarConviteEquipe(conviteToken)
       await recarregarPerfil()
       toast.sucesso('Convite aceito. Bem-vindo à equipe.')
       navigate('/app', { replace: true })
-    }).catch((e) => {
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Falha ao aceitar convite.')
+    } finally {
+      setEnviando(false)
+    }
+  }, [conviteToken, recarregarPerfil, toast, navigate])
+
+  // Sessão criada pelo cadastro por convite desta tela: o trigger handle_new_user
+  // já validou o token e vinculou a empresa. Não chama accept de novo; só
+  // recarrega o perfil e entra. Se o perfil ficou sem empresa (token rejeitado
+  // no signup), tenta o aceite explícito, que trata o usuário órfão.
+  useEffect(() => {
+    if (!session || !temConvite || !cadastroPorConviteRef.current || conclusaoIniciadaRef.current) return
+    conclusaoIniciadaRef.current = true
+    let ativo = true
+    setEnviando(true)
+    setErro(null)
+    void (async () => {
+      const perfil = await recarregarPerfil()
+      if (!perfil?.empresa_id) {
+        await aceitarConviteEquipe(conviteToken)
+        await recarregarPerfil()
+      }
+      if (!ativo) return
+      toast.sucesso('Convite aceito com sucesso.')
+      navigate('/app', { replace: true })
+    })().catch((e) => {
       if (!ativo) return
       setErro(e instanceof Error ? e.message : 'Falha ao aceitar convite.')
     }).finally(() => {
@@ -112,14 +142,33 @@ export default function LoginPage() {
           <p className="sem-empresa">{erro}</p>
           <div className="acoes-topo">
             <Link className="btn primario" to="/app">Ir para o app</Link>
-            <button className="btn" onClick={() => { setErro(null); void aceitarConviteEquipe(conviteToken).then(() => navigate('/app', { replace: true })) }}>
+            <button className="btn" disabled={enviando} onClick={() => void aceitarComEstaConta()}>
               Tentar novamente
             </button>
           </div>
         </div>
       )
     }
-    return <div className="tela-carregando"><Loader2 size={26} className="girando" /><span>Aceitando convite…</span></div>
+    if (cadastroPorConviteRef.current || enviando) {
+      return <div className="tela-carregando"><Loader2 size={26} className="girando" /><span>Concluindo convite…</span></div>
+    }
+    // Sessão pré-existente: o convite é individual, então nada é aceito sem
+    // ação explícita. O servidor continua validando e-mail/token/expiração.
+    return (
+      <div className="tela-carregando">
+        <h1>Você recebeu um convite de equipe</h1>
+        <p className="sem-empresa">
+          Você está conectado como <strong>{session.user.email}</strong>. Este convite é individual:
+          aceite com esta conta apenas se ele foi enviado para este e-mail. Caso contrário, saia e
+          crie a conta com o e-mail convidado.
+        </p>
+        <div className="acoes-topo">
+          <button className="btn primario" onClick={() => void aceitarComEstaConta()}>Aceitar com esta conta</button>
+          <button className="btn" onClick={() => { setErro(null); void sair() }}>Sair e usar o e-mail convidado</button>
+          <Link className="btn" to="/app">Ir para o app</Link>
+        </div>
+      </div>
+    )
   }
 
   async function enviar(evento: SubmitEvent<HTMLFormElement>) {
@@ -145,6 +194,9 @@ export default function LoginPage() {
         await entrar(email.trim(), senha)
         if (temConvite) return
       } else if (modo === 'cadastrar') {
+        // Marca antes do signup: a sessão pode chegar pelo onAuthStateChange
+        // ainda durante o await (sem confirmação de e-mail) ou depois do OTP.
+        cadastroPorConviteRef.current = temConvite
         const { precisaConfirmar } = await cadastrar({
           nome: nome.trim(),
           email: email.trim(),
@@ -167,6 +219,7 @@ export default function LoginPage() {
         setModo('entrar')
       }
     } catch (e) {
+      if (modo === 'cadastrar') cadastroPorConviteRef.current = false
       setErro(traduzErroAuth(e instanceof Error ? e.message : null))
     } finally {
       setEnviando(false)
