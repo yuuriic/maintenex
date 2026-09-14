@@ -1,7 +1,7 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase, supabaseConfigurado } from '../lib/supabase'
-import type { Profile } from '../lib/types'
+import type { PapelUsuario, Profile } from '../lib/types'
 import { authApiConfigurada, chamarAuth } from '../lib/auth-api'
 import { traduzErroAuth } from '../lib/auth-errors'
 
@@ -19,6 +19,7 @@ interface AuthContextValue {
   recuperarSenha: (email: string) => Promise<void>
   sair: () => Promise<void>
   atualizarPerfil: (dados: Partial<Profile>) => Promise<void>
+  recarregarPerfil: () => Promise<Profile | null>
 }
 
 export interface DadosCadastro {
@@ -28,6 +29,8 @@ export interface DadosCadastro {
   telefone: string
   /** Preenchido no auto-cadastro: o primeiro usuário vira owner da empresa criada. */
   empresa?: string
+  /** Token recebido por link individual de convite de equipe. */
+  conviteToken?: string
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -57,41 +60,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => sub.subscription.unsubscribe()
   }, [])
 
+  const carregarPerfil = useCallback(async (sessao = session) => {
+    const id = sessao?.user?.id
+    if (!id) {
+      setProfile(null)
+      setErroPerfil(null)
+      return null
+    }
+
+    const { data, error } = await supabase.from('profiles').select('*, empresas(id, nome, slug, status)').eq('id', id).maybeSingle()
+    if (error) throw error
+    const perfil = (data as Profile | null) ?? {
+      id,
+      nome: sessao.user.user_metadata?.nome ?? sessao.user.email?.split('@')[0] ?? 'Usuário',
+      email: sessao.user.email ?? '',
+      telefone: sessao.user.user_metadata?.telefone ?? null,
+      email_verificado: Boolean(sessao.user.email_confirmed_at),
+      papel: 'leitor' as PapelUsuario,
+      empresa_id: null,
+      cidade_id: null,
+      avatar_url: null,
+      ativo: true,
+      criado_em: new Date().toISOString(),
+    }
+    setProfile(perfil)
+    setErroPerfil(null)
+    return perfil
+  }, [session])
+
   useEffect(() => {
-    const id = session?.user?.id
-    if (!id) { setProfile(null); setErroPerfil(null); return }
+    if (!session?.user?.id) { setProfile(null); setErroPerfil(null); return }
 
     let ativo = true
     setProfile(null)
     setErroPerfil(null)
-    void (async () => {
-      try {
-        const { data } = await supabase.from('profiles').select('*, empresas(id, nome, slug, status)').eq('id', id).maybeSingle()
-        if (!ativo) return
-        setProfile(
-          (data as Profile | null) ?? {
-            id,
-            nome: session!.user.user_metadata?.nome ?? session!.user.email?.split('@')[0] ?? 'Usuário',
-            email: session!.user.email ?? '',
-            telefone: session!.user.user_metadata?.telefone ?? null,
-            email_verificado: Boolean(session!.user.email_confirmed_at),
-            papel: 'leitor',
-            empresa_id: null,
-            cidade_id: null,
-            avatar_url: null,
-            ativo: true,
-            criado_em: new Date().toISOString(),
-          },
-        )
-      } catch {
-        if (ativo) {
-          setProfile(null)
-          setErroPerfil('Não foi possível carregar seu perfil. Verifique sua conexão e tente novamente.')
-        }
-      }
-    })()
+    void carregarPerfil(session).catch(() => {
+      if (!ativo) return
+      setProfile(null)
+      setErroPerfil('Não foi possível carregar seu perfil. Verifique sua conexão e tente novamente.')
+    })
     return () => { ativo = false }
-  }, [session])
+  }, [session, carregarPerfil])
 
   const valor = useMemo<AuthContextValue>(() => ({
     session,
@@ -106,15 +115,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) throw new Error(traduzErroAuth(error.message))
     },
 
-    async cadastrar({ nome, email, senha, telefone, empresa }) {
+    async cadastrar({ nome, email, senha, telefone, empresa, conviteToken }) {
       if (authApiConfigurada) {
-        const data = await chamarAuth<{ access_token?: string }>('signup', { nome, email, telefone, senha, empresa })
+        const data = await chamarAuth<{ access_token?: string }>('signup', {
+          nome, email, telefone, senha, empresa, conviteToken,
+        })
         return { precisaConfirmar: !data.access_token }
       }
+      const metadata: { nome: string; telefone: string; empresa_nome?: string; convite_token?: string } = { nome, telefone }
+      if (conviteToken) metadata.convite_token = conviteToken
+      else if (empresa) metadata.empresa_nome = empresa
       const { data, error } = await supabase.auth.signUp({
         email,
         password: senha,
-        options: { data: { nome, telefone, ...(empresa ? { empresa_nome: empresa } : {}) } },
+        options: { data: metadata },
       })
       if (error) throw new Error(traduzErroAuth(error.message))
       if (data.user?.identities?.length === 0) {
@@ -168,7 +182,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) throw new Error(error.message)
       setProfile(data as Profile)
     },
-  }), [session, profile, erroPerfil, carregando, recuperandoSenha])
+
+    recarregarPerfil: carregarPerfil,
+  }), [session, profile, erroPerfil, carregando, recuperandoSenha, carregarPerfil])
 
   return <AuthContext.Provider value={valor}>{children}</AuthContext.Provider>
 }

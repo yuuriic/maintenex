@@ -36,8 +36,11 @@ Uma empresa entra de dois jeitos:
 2. **Cadastro pela plataforma** — o `super_admin` cria a empresa em `/app/empresas`
    e registra um convite com papel `owner` para o e-mail do responsável.
 
-Convites: o responsável registra o e-mail em **Configurações → Equipe**. Quando a
-pessoa cria a conta com aquele e-mail, o trigger a vincula à empresa com o papel do convite.
+Convites: o responsável envia um link individual em **Configurações → Equipe**. A
+Edge Function server-side gera o token, salva apenas o hash e, quando configurado,
+envia o e-mail via Resend. Em modo local/dry-run nenhum e-mail real é enviado. Quando
+a pessoa cria ou acessa a conta pelo link, o token e o e-mail são validados antes do
+vínculo à empresa.
 
 ## Configurar o Supabase
 
@@ -94,7 +97,27 @@ refaça o deploy.
 | `VITE_API_URL` | não | URL da API Spring; sem ela, o frontend usa Supabase Auth diretamente |
 | `VITE_EMAIL_OTP_LENGTH` | não | Tamanho do OTP configurado no Supabase; padrão `8` |
 
-Nunca publique a `service_role` no frontend.
+Nunca publique a `service_role` no frontend e não crie variáveis `VITE_` para Resend.
+
+### Convites de equipe: Edge Function + Resend
+
+O envio de convites roda em `team-invites`, uma Supabase Edge Function autenticada.
+O navegador chama a função com a sessão do usuário; a função valida `owner`/`super_admin`,
+normaliza o e-mail, trata usuário já existente e grava apenas o hash do token no banco.
+
+Variáveis da função, sempre server-side:
+
+| Variável | Uso |
+| --- | --- |
+| `SUPABASE_URL` | URL do projeto Supabase |
+| `SUPABASE_ANON_KEY` | valida o JWT recebido do frontend |
+| `SUPABASE_SERVICE_ROLE_KEY` | executa funções administrativas no banco |
+| `RESEND_API_KEY` | chave do Resend, nunca exposta ao frontend |
+| `INVITES_FROM` | remetente validado no Resend |
+| `INVITES_DRY_RUN` | `true` impede envio real e retorna link seguro para teste |
+| `SITE_URL`/`APP_SITE_URL` | origem pública usada no link `/login?modo=cadastrar&convite=...` |
+
+`INVITES_DRY_RUN=true` ativa o modo teste e retorna o link seguro sem enviar e-mail real. Fora do dry-run explícito, ausência de `RESEND_API_KEY` ou `INVITES_FROM` é erro de configuração de envio.
 
 ### E-mail transacional: Resend + Supabase
 
@@ -137,12 +160,13 @@ Se a API Spring for usada, configure no backend `SUPABASE_URL` e
 - Trigger `proteger_papel()` impede auto-escalação: ninguém altera o próprio papel ou a
   própria empresa, e só `super_admin` concede `super_admin`.
 - Trigger `proteger_convite()` impede convite com papel `super_admin` e convite para outra empresa.
+- A tabela `convites` é somente leitura para o frontend autenticado; criar, reenviar, aceitar e remover convites passa pela Edge Function `team-invites` com validações server-side e token individual.
 
 ## Estado atual
 
 - [x] Landing pública com SEO (meta tags, Open Graph, JSON-LD, robots, sitemap)
 - [x] Autenticação Supabase (entrar, cadastrar, recuperar senha)
 - [x] Dashboard, Checklist, Equipamentos, Estoque, Pendências, Relatórios, Configurações
-- [x] Multiempresa com três níveis de acesso e convites
+- [x] Multiempresa com três níveis de acesso e convites por link seguro
 - [x] Tema claro/escuro, busca rápida (⌘K), notificações, exportação CSV
-- [ ] Envio de e-mail do convite (hoje o convite é registrado; a pessoa se cadastra pelo `/login`)
+- [x] Envio server-side de convite via Edge Function, com dry-run local e Resend restrito ao servidor

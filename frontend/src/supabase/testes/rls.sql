@@ -3,6 +3,7 @@
 grant usage on schema public to authenticated;
 grant all on all tables in schema public to authenticated;
 grant all on all sequences in schema public to authenticated;
+revoke insert, update, delete, truncate, references, trigger, maintain on convites from authenticated;
 
 -- ============================================================
 -- 1. Auto-cadastro: usuário informando empresa vira owner
@@ -22,11 +23,12 @@ from profiles p join empresas e on e.id = p.empresa_id order by p.email;
 -- ============================================================
 -- 2. Convite define a empresa e o papel do novo usuário
 -- ============================================================
-insert into convites (empresa_id, email, papel)
-select id, 'carlos@alfa.com.br', 'tecnico' from empresas where slug = 'alfa-manutencao';
+insert into convites (empresa_id, email, papel, token_hash, status_envio)
+select id, 'carlos@alfa.com.br', 'tecnico', encode(digest('token-convite-carlos', 'sha256'), 'hex'), 'dry_run'
+from empresas where slug = 'alfa-manutencao';
 
 insert into auth.users (id, email, raw_user_meta_data) values
-  ('33333333-3333-3333-3333-333333333333', 'carlos@alfa.com.br', '{"nome":"Carlos"}'::jsonb);
+  ('33333333-3333-3333-3333-333333333333', 'carlos@alfa.com.br', '{"nome":"Carlos","convite_token":"token-convite-carlos"}'::jsonb);
 
 select '2. convite' as teste, p.email, p.papel::text, e.nome as empresa,
        (select aceito_em is not null from convites c where c.email = p.email) as convite_aceito
@@ -81,8 +83,9 @@ update profiles set papel = 'super_admin' where id = '22222222-2222-2222-2222-22
 -- ============================================================
 -- 7. Bruno tenta convidar alguém como super_admin
 -- ============================================================
-insert into convites (empresa_id, email, papel)
-select id, 'invasor@beta.com.br', 'super_admin' from empresas where slug = 'beta-servicos';
+insert into convites (empresa_id, email, papel, token_hash)
+select id, 'invasor@beta.com.br', 'super_admin', encode(digest('token-invasor', 'sha256'), 'hex')
+from empresas where slug = 'beta-servicos';
 
 -- ============================================================
 -- 8. Carlos (tecnico) não cria equipamento; owner cria

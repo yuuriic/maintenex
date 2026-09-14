@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
-  Building2, Copy, Mail, MapPin, Moon, Plus, Sun, Trash2, UserCog, UserPlus,
+  Building2, Copy, Mail, MapPin, Moon, Plus, RotateCw, Sun, Trash2, UserCog, UserPlus,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../lib/app-state'
@@ -11,19 +11,39 @@ import { Badge, Campo, ConfirmarExclusao, ErroDados, Painel, Vazio } from '../co
 import DashboardCustomizer from '../components/DashboardCustomizer'
 import { DASHBOARD_LAYOUT_PADRAO, normalizarDashboardLayout, type DashboardLayout } from '../lib/dashboard-config'
 import { data, titulo } from '../lib/format'
-import type { Cidade, Convite, Empresa, PapelUsuario, Profile, Setor } from '../lib/types'
+import {
+  cancelarConviteEquipe,
+  conviteTemLinkSeguro,
+  enviarConviteEquipe,
+  reenviarConviteEquipe,
+} from '../lib/team-invites'
+import type { Cidade, Convite, Empresa, PapelUsuario, Profile, Setor, StatusEnvioConvite } from '../lib/types'
 
 type Aba = 'dashboard' | 'perfil' | 'empresa' | 'cidades' | 'setores' | 'equipe'
 
-const PAPEIS_ATRIBUIVEIS: { valor: PapelUsuario; rotulo: string; descricao: string }[] = [
+const PAPEIS_ATRIBUIVEIS = [
   { valor: 'owner', rotulo: 'Responsável', descricao: 'Administra a empresa e convida usuários' },
   { valor: 'gestor', rotulo: 'Gestor', descricao: 'Cadastra e acompanha toda a operação' },
   { valor: 'tecnico', rotulo: 'Técnico', descricao: 'Executa checklists e movimenta estoque' },
   { valor: 'leitor', rotulo: 'Leitor', descricao: 'Apenas consulta' },
-]
+] satisfies { valor: Exclude<PapelUsuario, 'super_admin'>; rotulo: string; descricao: string }[]
 
 const tomPapel: Record<PapelUsuario, string> = {
   super_admin: 'roxo', owner: 'azul', gestor: 'verde', tecnico: 'cinza', leitor: 'cinza',
+}
+
+const statusEnvioTexto: Record<StatusEnvioConvite, string> = {
+  pendente: 'Pendente envio',
+  enviado: 'Enviado',
+  dry_run: 'Modo teste',
+  falhou: 'Falha no envio',
+}
+
+const statusEnvioTom: Record<StatusEnvioConvite, string> = {
+  pendente: 'ambar',
+  enviado: 'verde',
+  dry_run: 'azul',
+  falhou: 'vermelho',
 }
 
 export default function Configuracoes() {
@@ -38,7 +58,10 @@ export default function Configuracoes() {
   const [dashboardLayout, setDashboardLayout] = useState<DashboardLayout | null>(null)
   const [novaCidade, setNovaCidade] = useState({ nome: '', uf: '' })
   const [novoSetor, setNovoSetor] = useState({ nome: '', responsavel: '' })
-  const [convite, setConvite] = useState({ email: '', papel: 'tecnico' as PapelUsuario })
+  const [convite, setConvite] = useState({ email: '', papel: 'tecnico' as Exclude<PapelUsuario, 'super_admin'> })
+  const [enviandoConvite, setEnviandoConvite] = useState(false)
+  const [conviteEmAcao, setConviteEmAcao] = useState<string | null>(null)
+  const [linksConvite, setLinksConvite] = useState<Record<string, string>>({})
   const [empresaForm, setEmpresaForm] = useState({ nome: '', cnpj: '', email_principal: '', telefone: '' })
   const [excluirCidade, setExcluirCidade] = useState<Cidade | null>(null)
   const [excluirSetor, setExcluirSetor] = useState<Setor | null>(null)
@@ -170,22 +193,70 @@ export default function Configuracoes() {
     const email = convite.email.trim().toLowerCase()
     if (!email.includes('@')) { toast.erro('Informe um e-mail válido.'); return }
 
-    const { error } = await supabase.from('convites').upsert({
-      empresa_id: empresaId, email, papel: convite.papel, criado_por: profile?.id ?? null,
-      aceito_em: null, expira_em: new Date(Date.now() + 14 * 86_400_000).toISOString(),
-    }, { onConflict: 'empresa_id,email' })
+    setEnviandoConvite(true)
+    try {
+      const resposta = await enviarConviteEquipe({ email, papel: convite.papel, empresaId })
+      if (resposta.status === 'ja_membro') {
+        toast.info(resposta.mensagem)
+        return
+      }
+      if (resposta.status === 'falhou') toast.erro(resposta.mensagem)
+      else toast.sucesso(resposta.mensagem)
+      if (resposta.conviteId && conviteTemLinkSeguro(resposta)) {
+        setLinksConvite((atuais) => ({ ...atuais, [resposta.conviteId!]: resposta.inviteUrl }))
+      }
+      setConvite({ email: '', papel: 'tecnico' })
+      void recarregarConvites()
+    } catch (e) {
+      toast.erro(e instanceof Error ? e.message : 'Falha ao enviar convite.')
+    } finally {
+      setEnviandoConvite(false)
+    }
+  }
 
-    if (error) { toast.erro(error.message); return }
-    toast.sucesso('Convite registrado. Ao criar a conta com este e-mail, o usuário entra na empresa.')
-    setConvite({ email: '', papel: 'tecnico' })
-    void recarregarConvites()
+  async function reenviarConvite(c: Convite) {
+    setConviteEmAcao(c.id)
+    try {
+      const resposta = await reenviarConviteEquipe(c.id)
+      if (resposta.status === 'falhou') toast.erro(resposta.mensagem)
+      else toast.sucesso(resposta.mensagem)
+      if (resposta.conviteId && conviteTemLinkSeguro(resposta)) {
+        setLinksConvite((atuais) => ({ ...atuais, [resposta.conviteId!]: resposta.inviteUrl }))
+      }
+      void recarregarConvites()
+    } catch (e) {
+      toast.erro(e instanceof Error ? e.message : 'Falha ao reenviar convite.')
+    } finally {
+      setConviteEmAcao(null)
+    }
+  }
+
+  async function copiarLinkConvite(c: Convite) {
+    const link = linksConvite[c.id]
+    if (!link) { toast.erro('Reenvie o convite em modo teste para gerar um link seguro.'); return }
+    try {
+      await navigator.clipboard.writeText(link)
+      toast.info('Link seguro do convite copiado.')
+    } catch {
+      toast.erro('Não foi possível copiar o link.')
+    }
   }
 
   async function removerConvite(id: string) {
-    const { error } = await supabase.from('convites').delete().eq('id', id)
-    if (error) { toast.erro(error.message); return }
-    toast.sucesso('Convite removido.')
-    void recarregarConvites()
+    setConviteEmAcao(id)
+    try {
+      const resposta = await cancelarConviteEquipe(id)
+      toast.sucesso(resposta.mensagem)
+      setLinksConvite((atuais) => {
+        const { [id]: _removido, ...restantes } = atuais
+        return restantes
+      })
+      void recarregarConvites()
+    } catch (e) {
+      toast.erro(e instanceof Error ? e.message : 'Falha ao remover convite.')
+    } finally {
+      setConviteEmAcao(null)
+    }
   }
 
   async function mudarPapel(id: string, papel: PapelUsuario) {
@@ -437,18 +508,18 @@ export default function Configuracoes() {
                       onChange={(e) => setConvite({ ...convite, email: e.target.value })} />
                   </Campo>
                   <Campo rotulo="Papel">
-                    <select value={convite.papel} onChange={(e) => setConvite({ ...convite, papel: e.target.value as PapelUsuario })}>
+                    <select value={convite.papel} onChange={(e) => setConvite({ ...convite, papel: e.target.value as Exclude<PapelUsuario, 'super_admin'> })}>
                       {PAPEIS_ATRIBUIVEIS.map((op) => <option key={op.valor} value={op.valor}>{op.rotulo}</option>)}
                     </select>
                   </Campo>
                 </div>
                 <p className="dica">
-                  {PAPEIS_ATRIBUIVEIS.find((p) => p.valor === convite.papel)?.descricao}. Quando a pessoa criar
-                  a conta com este e-mail, ela entra automaticamente na empresa com o papel escolhido.
+                  {PAPEIS_ATRIBUIVEIS.find((p) => p.valor === convite.papel)?.descricao}. A pessoa recebe um link
+                  individual de convite; em modo teste, o link seguro fica disponível para cópia após o envio.
                 </p>
                 <div className="modal-acoes">
-                  <button className="btn primario" onClick={() => void enviarConvite()}>
-                    <UserPlus size={16} />Registrar convite
+                  <button className="btn primario" onClick={() => void enviarConvite()} disabled={enviandoConvite}>
+                    <UserPlus size={16} />{enviandoConvite ? 'Enviando…' : 'Enviar convite'}
                   </button>
                 </div>
               </>
@@ -458,25 +529,35 @@ export default function Configuracoes() {
               <ul className="lista-simples">
                 {convites.map((c) => {
                   const expirado = !c.aceito_em && new Date(c.expira_em) < new Date()
+                  const emAcao = conviteEmAcao === c.id
                   return (
                     <li key={c.id}>
-                      <div className="celula-principal">
+                      <div className="celula-principal convite-celula">
                         <Mail size={16} />
-                        <div><b>{c.email}</b><small>{titulo(c.papel)} · expira {data(c.expira_em)}</small></div>
+                        <div>
+                          <b>{c.email}</b>
+                          <small>{titulo(c.papel)} · expira {data(c.expira_em)}</small>
+                          {c.ultimo_erro_envio && <small className="erro-inline">{c.ultimo_erro_envio}</small>}
+                        </div>
                       </div>
-                      <div className="acoes">
+                      <div className="acoes convite-acoes">
                         <Badge tom={c.aceito_em ? 'verde' : expirado ? 'vermelho' : 'ambar'}>
                           {c.aceito_em ? 'Aceito' : expirado ? 'Expirado' : 'Pendente'}
                         </Badge>
-                        <button className="icone-btn" aria-label="Copiar link de cadastro"
-                          onClick={() => {
-                            void navigator.clipboard.writeText(`${window.location.origin}/login?modo=cadastrar`)
-                            toast.info('Link de cadastro copiado.')
-                          }}>
-                          <Copy size={15} />
-                        </button>
-                        {podeAdministrar && (
-                          <button className="icone-btn perigo" onClick={() => void removerConvite(c.id)} aria-label="Remover">
+                        {!c.aceito_em && <Badge tom={statusEnvioTom[c.status_envio]}>{statusEnvioTexto[c.status_envio]}</Badge>}
+                        {podeAdministrar && !c.aceito_em && (
+                          <button className="btn mini" onClick={() => void reenviarConvite(c)} disabled={emAcao}>
+                            <RotateCw size={14} />{emAcao ? 'Enviando…' : 'Reenviar'}
+                          </button>
+                        )}
+                        {linksConvite[c.id] && (
+                          <button className="icone-btn" aria-label="Copiar link seguro do convite"
+                            onClick={() => void copiarLinkConvite(c)}>
+                            <Copy size={15} />
+                          </button>
+                        )}
+                        {podeAdministrar && !c.aceito_em && (
+                          <button className="icone-btn perigo" onClick={() => void removerConvite(c.id)} aria-label="Remover" disabled={emAcao}>
                             <Trash2 size={15} />
                           </button>
                         )}

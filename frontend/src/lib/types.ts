@@ -6,6 +6,7 @@ export type StatusChecklist = 'pendente' | 'em_andamento' | 'concluido' | 'cance
 export type PrioridadePendencia = 'baixa' | 'media' | 'alta' | 'critica'
 export type StatusPendencia = 'aberta' | 'em_andamento' | 'resolvida' | 'cancelada'
 export type TipoMovimentacao = 'entrada' | 'saida' | 'ajuste'
+export type StatusEnvioConvite = 'pendente' | 'enviado' | 'dry_run' | 'falhou'
 
 export interface Empresa {
   id: string; nome: string; slug: string; cnpj: string | null
@@ -16,6 +17,9 @@ export interface Empresa {
 export interface Convite {
   id: string; empresa_id: string; email: string; papel: PapelUsuario
   criado_por: string | null; aceito_em: string | null; expira_em: string; criado_em: string
+  token_hash: string | null; status_envio: StatusEnvioConvite; tentativas_envio: number
+  enviado_em: string | null; reenviado_em: string | null; ultimo_erro_envio: string | null
+  ultimo_id_envio: string | null; atualizado_em: string
 }
 
 export interface Cidade {

@@ -19,6 +19,8 @@ Migrations reproduzíveis e ordenadas do schema Supabase.
 9. `0012_integridade_multi_tenant.sql` — adiciona preflight de integridade, FKs compostas com `empresa_id`, índices de suporte e remove `unaccent_simples(text)` da superfície RPC
 10. `20260910230508_harden_rls_performance.sql` — elimina políticas permissivas duplicadas, corrige `auth.uid()` init plan, adiciona índices FK e fixa `search_path` do utilitário de slug
 11. `20260910235534_dashboard_personalizacao.sql` — adiciona layout de dashboard por empresa, catálogo de 62 visuais no frontend e RLS administrativo
+12. `20260911120000_team_invites.sql` — adiciona convites de equipe tokenizados, status de envio, mutações server-side e aceite seguro por token
+13. `20260914010000_fix_rls_helper_row_security.sql` — reescreve as helpers `empresa_atual()`, `eh_super_admin()`, `pode_*()` com `set row_security = off` (fix de recursão de RLS que existia só em produção); deve ser a última a redefinir essas funções
 
 **Aplicação automática via Supabase CLI (somente para ambientes autorizados):**
 ```bash
@@ -152,23 +154,24 @@ Nesta etapa, `movimentacoes.equipamento_id` e `pendencias.equipamento_id` são v
 | `leitor` | read | read | — | self | — |
 | `tecnico` | read | read + write | — | self | — |
 | `gestor` | read + write | read + write | — | self | — |
-| `owner` | read + write | read + write | own (select+update) | admin empresa | admin empresa |
-| `super_admin` | all cross-tenant | all cross-tenant | all | all | all |
+| `owner` | read + write | read + write | own (select+update) | admin empresa | lê empresa; cria/reenvia/remove via Edge Function |
+| `super_admin` | all cross-tenant | all cross-tenant | all | all | lê cross-tenant; cria/reenvia/remove via Edge Function |
 
 ### Grants SQL x RLS
 
 PostgREST precisa de grants SQL para alcançar uma tabela, mas esses grants não substituem autorização por linha. No Maintenex:
 
-- `authenticated` deve ter somente `SELECT`, `INSERT`, `UPDATE` e `DELETE` nas 13 tabelas públicas da aplicação.
+- `authenticated` deve ter somente `SELECT`, `INSERT`, `UPDATE` e `DELETE` nas tabelas públicas da aplicação, exceto `convites`, que expõe apenas `SELECT` para o frontend.
 - `authenticated` não deve ter `TRUNCATE`, `REFERENCES`, `TRIGGER` ou `MAINTAIN` nas tabelas da aplicação; esses privilégios não são usados pelo frontend/PostgREST atual para leitura e escrita de registros.
 - `anon` não deve ter grants em tabelas ou sequences da aplicação.
 - Toda tabela pública nova da aplicação precisa de RLS habilitada, policies definidas e grants mínimos antes de ser considerada pronta.
+- Mutações de `convites` não são feitas pelo navegador: a Edge Function `team-invites` usa service role e funções administrativas `SECURITY DEFINER` para validar ator, empresa ativa, papel, e-mail, token e usuário existente.
 - Grants SQL e policies RLS são camadas diferentes: grants permitem a tentativa de acesso; RLS decide quais linhas a sessão autenticada pode ver ou modificar.
 
 A migration `0011_grants_api_autenticada.sql` também ajusta default privileges do papel `postgres` no schema `public`, porque o Supabase local pode herdar ACLs amplas para objetos criados por esse owner. Roles internas como `service_role` e `supabase_admin` não devem ser reduzidas sem evidência específica para evitar quebrar o funcionamento interno do Supabase.
 
 ### Triggers SECURITY DEFINER
-- `handle_new_user()` — auto-cadastro de empresa ou aceite de convite
+- `handle_new_user()` — auto-cadastro de empresa ou aceite de convite tokenizado
 - `aplicar_movimentacao()` — atualiza saldo de `estoque` após `movimentacoes`
 - `proteger_papel()` — impede auto-escalação e protege campos sensíveis
 - `proteger_convite()` — impede convite `super_admin` e cross-empresa
@@ -184,6 +187,19 @@ A migration `0011_grants_api_autenticada.sql` também ajusta default privileges 
 - `EXECUTE` é revogado de `PUBLIC`, `anon` e `authenticated`.
 - `handle_new_user()` continua podendo usar `unaccent_simples(text)` no cadastro local porque a trigger function é `SECURITY DEFINER` e roda com `search_path` controlado.
 - `unaccent_simples(text)` não deve ser convertida para `SECURITY DEFINER`.
+
+### Convites de equipe server-side
+
+A migration `20260911120000_team_invites.sql` troca o aceite por e-mail simples por um fluxo com link individual:
+
+- a Edge Function `team-invites` gera um token aleatório e salva em `convites.token_hash` apenas `sha256(token)`;
+- `handle_new_user()` só aceita convite quando `raw_user_meta_data.convite_token` corresponde ao hash, ao e-mail e a um convite pendente não expirado;
+- a função `admin_aceitar_convite_equipe()` permite aceitar o convite para usuário autenticado já existente sem empresa;
+- e-mails já membros da mesma empresa retornam status informativo, e e-mails vinculados a outra empresa são bloqueados;
+- `status_envio`, `tentativas_envio`, `enviado_em`, `reenviado_em` e `ultimo_erro_envio` registram envio, dry-run, reenvio e falhas.
+- `admin_preparar_convite_equipe()` bloqueia a linha do convite (`for update`) e recusa reenvio em menos de 1 minuto após um envio bem-sucedido, evitando disparos concorrentes e abuso de e-mail.
+
+Variáveis da Edge Function são server-side: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, `INVITES_FROM`, `INVITES_DRY_RUN` e `SITE_URL`/`APP_SITE_URL`. `INVITES_DRY_RUN=true` ativa explicitamente o modo teste, não envia e-mail real e retorna o link seguro para validação local. Fora desse modo explícito, ausência de `RESEND_API_KEY` ou `INVITES_FROM` é erro de configuração de envio.
 
 ### Regras para migrations futuras
 - Toda nova tabela tenant-scoped deve carregar `empresa_id`, habilitar RLS e receber policies/grants mínimos antes de uso pela API.
@@ -235,7 +251,7 @@ WHERE table_schema = 'public'
     'estoque','movimentacoes','pendencias','dashboard_configuracoes'
   )
 ORDER BY table_name, privilege_type;
--- Esperado por tabela: grants do domínio; dashboard_configuracoes usa INSERT, SELECT, UPDATE
+-- Esperado por tabela: grants do domínio; convites usa apenas SELECT no frontend; dashboard_configuracoes usa INSERT, SELECT, UPDATE
 -- Não esperado: TRUNCATE, REFERENCES, TRIGGER, MAINTAIN
 
 -- Validar que anon não tem grants nas tabelas da aplicação
@@ -302,6 +318,22 @@ Antes de considerar staging pronto:
 Mas não substitui migrations no fluxo normal.
 
 ---
+
+## 🧭 Reconciliação com a produção (auditoria de 2026-09-14)
+
+O history remoto de produção não usa os números do repositório: registra `0001`, `0002`, os admin-scripts `0003–0005`, `20260820145725 verificacao_cadastro`, `20260820145807 restringir_funcao_verificacao`, `20260820202809 detalhes_checklist`, `20260820204813 secoes_checklist`, `20260910232221 fix_rls_helper_functions_recursion` (só em produção; replicado aqui por `20260914010000`) e `20260911003150 dashboard_personalizacao`. O schema real equivale a `0001`+`0002`+`0006`–`0010`+`20260910235534`+fix de recursão; faltam `0011`, `0012`, `20260910230508` e `20260911120000`.
+
+Plano ensaiado localmente (banco descartável `prodsim`): `migration repair --status applied 0006 0007 0008 0009 0010 20260910235534`, `migration repair --status reverted` das nove versões que só existem no remoto (a CLI 2.115.0 recusa `db push` enquanto houver versão remota sem arquivo local), `db push --dry-run --include-all` e `db push --include-all`. Antes disso rode `testes/preflight-producao.sql` (somente SELECT): o preflight da `0012` exige `profiles.cidade_id` nulo para perfis sem empresa (`super_admin`) e responsáveis de pendências na mesma empresa.
+
+Produção também possui uma role Postgres `admin` (LOGIN, privilégios amplos) que não tem origem no repositório; não é usada pelas migrations nem pela aplicação. Origem a confirmar no Dashboard antes de qualquer decisão.
+
+## ⚠️ Drift histórico: `frontend/supabase/`
+
+`frontend/src/supabase/` é o único diretório Supabase canônico (config, migrations, seeds, testes e `functions/`). O diretório `frontend/supabase/` é um espelho antigo, congelado nas migrations `0001`–`0012`, sem `seeds/` e sem as migrations `20260910230508`, `20260910235534` e `20260911120000`; ele não deve ser usado como workdir da CLI nem receber novas migrations. Comandos locais devem usar `--workdir frontend/src` (ou rodar a partir de `frontend/src`). A remoção do espelho fica para uma limpeza separada.
+
+### `functions/`
+
+Edge Functions do projeto (`functions/team-invites/index.ts`). O `tsconfig.json` do frontend exclui `src/supabase/functions` porque esse código roda no runtime Deno. Localmente: `supabase functions serve team-invites --workdir frontend/src --env-file <arquivo com INVITES_DRY_RUN=true>`.
 
 ## 🚧 Melhorias Futuras
 

@@ -29,6 +29,16 @@ begin
       and n.nspname = 'public'
       and d.defaclobjtype = 'r'
   ),
+  table_required_grants as (
+    select t.table_name, required.privilege_type
+    from public_tables t
+    cross join lateral (
+      values ('SELECT')
+      union all select 'INSERT' where t.table_name <> 'convites'
+      union all select 'UPDATE' where t.table_name <> 'convites'
+      union all select 'DELETE' where t.table_name not in ('convites', 'dashboard_configuracoes')
+    ) as required(privilege_type)
+  ),
   checks as (
     select format('RLS disabled: public.%s', t.table_name) as violation
     from public_tables t
@@ -47,14 +57,13 @@ begin
 
     union all
 
-    select format('authenticated missing %s: public.%s', required.privilege_type, t.table_name) as violation
-    from public_tables t
-    cross join (values ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE')) as required(privilege_type)
+    select format('authenticated missing %s: public.%s', required.privilege_type, required.table_name) as violation
+    from table_required_grants required
     where not exists (
       select 1
       from information_schema.role_table_grants g
       where g.table_schema = 'public'
-        and g.table_name = t.table_name
+        and g.table_name = required.table_name
         and g.grantee = 'authenticated'
         and g.privilege_type = required.privilege_type
     )
@@ -66,7 +75,11 @@ begin
     join public_tables t on t.table_name = g.table_name
     where g.table_schema = 'public'
       and g.grantee = 'authenticated'
-      and g.privilege_type not in ('SELECT', 'INSERT', 'UPDATE', 'DELETE')
+      and (
+        g.privilege_type not in ('SELECT', 'INSERT', 'UPDATE', 'DELETE')
+        or (g.table_name = 'convites' and g.privilege_type in ('INSERT', 'UPDATE', 'DELETE'))
+        or (g.table_name = 'dashboard_configuracoes' and g.privilege_type = 'DELETE')
+      )
 
     union all
 

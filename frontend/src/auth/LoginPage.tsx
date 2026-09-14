@@ -1,5 +1,5 @@
-import { useEffect, useState, type SubmitEvent } from 'react'
-import { Link, Navigate, useSearchParams } from 'react-router-dom'
+import { useEffect, useMemo, useState, type SubmitEvent } from 'react'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Building2, Eye, EyeOff, Loader2, Lock, Mail, Phone, ShieldCheck, User } from 'lucide-react'
 import { aplicarSeo } from '../lib/seo'
 import { useAuth } from './AuthProvider'
@@ -10,6 +10,7 @@ import PasswordStrength, { senhaAtendeRequisitos } from '../components/ui/passwo
 import OtpInput from '../components/ui/otp-input'
 import BrandMark from '../components/ui/brand-mark'
 import { traduzErroAuth } from '../lib/auth-errors'
+import { aceitarConviteEquipe } from '../lib/team-invites'
 
 type Modo = 'entrar' | 'cadastrar' | 'confirmar' | 'recuperar'
 type ErrosCampos = Partial<Record<'nome' | 'email' | 'telefone' | 'senha' | 'confirmacao' | 'codigo', string>>
@@ -39,10 +40,13 @@ const destaques = [
 ]
 
 export default function LoginPage() {
-  const { session, recuperandoSenha, entrar, cadastrar, confirmarCadastro, reenviarCodigoCadastro, recuperarSenha } = useAuth()
+  const { session, recuperandoSenha, entrar, cadastrar, confirmarCadastro, reenviarCodigoCadastro, recuperarSenha, recarregarPerfil } = useAuth()
   const toast = useToast()
+  const navigate = useNavigate()
   const [params] = useSearchParams()
-  const [modo, setModo] = useState<Modo>(params.get('modo') === 'cadastrar' ? 'cadastrar' : 'entrar')
+  const conviteToken = useMemo(() => params.get('convite')?.trim() ?? '', [params])
+  const temConvite = conviteToken.length > 0
+  const [modo, setModo] = useState<Modo>(params.get('modo') === 'cadastrar' || temConvite ? 'cadastrar' : 'entrar')
   const [nome, setNome] = useState('')
   const [empresa, setEmpresa] = useState('')
   const [email, setEmail] = useState('')
@@ -73,6 +77,25 @@ export default function LoginPage() {
     })
   }, [])
 
+  useEffect(() => {
+    if (!session || !temConvite) return
+    let ativo = true
+    setEnviando(true)
+    setErro(null)
+    void aceitarConviteEquipe(conviteToken).then(async () => {
+      if (!ativo) return
+      await recarregarPerfil()
+      toast.sucesso('Convite aceito. Bem-vindo à equipe.')
+      navigate('/app', { replace: true })
+    }).catch((e) => {
+      if (!ativo) return
+      setErro(e instanceof Error ? e.message : 'Falha ao aceitar convite.')
+    }).finally(() => {
+      if (ativo) setEnviando(false)
+    })
+    return () => { ativo = false }
+  }, [session, temConvite, conviteToken, recarregarPerfil, toast, navigate])
+
   // O link do Supabase cria uma sessão temporária. Ela serve apenas para trocar
   // a senha e não deve ser tratada como um login comum.
   const retornoDeRecuperacao = recuperandoSenha
@@ -80,7 +103,24 @@ export default function LoginPage() {
   if (retornoDeRecuperacao) {
     return <Navigate to={{ pathname: '/redefinir-senha', hash: window.location.hash }} replace />
   }
-  if (session) return <Navigate to="/app" replace />
+  if (session && !temConvite) return <Navigate to="/app" replace />
+  if (session && temConvite) {
+    if (erro) {
+      return (
+        <div className="tela-carregando">
+          <h1>Não foi possível aceitar o convite</h1>
+          <p className="sem-empresa">{erro}</p>
+          <div className="acoes-topo">
+            <Link className="btn primario" to="/app">Ir para o app</Link>
+            <button className="btn" onClick={() => { setErro(null); void aceitarConviteEquipe(conviteToken).then(() => navigate('/app', { replace: true })) }}>
+              Tentar novamente
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return <div className="tela-carregando"><Loader2 size={26} className="girando" /><span>Aceitando convite…</span></div>
+  }
 
   async function enviar(evento: SubmitEvent<HTMLFormElement>) {
     evento.preventDefault()
@@ -103,13 +143,15 @@ export default function LoginPage() {
     try {
       if (modo === 'entrar') {
         await entrar(email.trim(), senha)
+        if (temConvite) return
       } else if (modo === 'cadastrar') {
         const { precisaConfirmar } = await cadastrar({
           nome: nome.trim(),
           email: email.trim(),
           senha,
           telefone: normalizarTelefone(telefone)!,
-          empresa: empresa.trim() || undefined,
+          empresa: temConvite ? undefined : empresa.trim() || undefined,
+          conviteToken: temConvite ? conviteToken : undefined,
         })
         if (precisaConfirmar) {
           toast.sucesso('Enviamos um código de confirmação para seu e-mail.')
@@ -206,6 +248,8 @@ export default function LoginPage() {
               ? `Digite o código enviado para ${mascararEmail(email)}.`
               : modo === 'recuperar'
               ? 'Informe o e-mail cadastrado e enviaremos um link de redefinição.'
+              : temConvite
+              ? 'Você recebeu um convite individual. Crie sua conta com o e-mail convidado ou entre com a conta existente.'
               : 'Use seu e-mail corporativo para acessar o painel.'}
           </p>
 
@@ -218,6 +262,11 @@ export default function LoginPage() {
           <form onSubmit={enviar} className="login-form">
             {modo === 'cadastrar' && (
               <>
+                {temConvite && (
+                  <div className="alerta aviso">
+                    Este cadastro usará o link individual de convite. O campo empresa fica bloqueado para preservar o vínculo seguro.
+                  </div>
+                )}
                 <label className="campo">
                   <span>Nome</span>
                   <div className="campo-input">
@@ -228,18 +277,20 @@ export default function LoginPage() {
                   {errosCampos.nome && <small className="campo-erro">{errosCampos.nome}</small>}
                 </label>
 
-                <label className="campo">
-                  <span>Empresa</span>
-                  <div className="campo-input">
-                    <Building2 size={17} />
-                    <input value={empresa} onChange={(e) => setEmpresa(e.target.value)}
-                      placeholder="Nome da sua empresa" autoComplete="organization" />
-                  </div>
-                  <small className="ajuda">
-                    Informe a empresa para criá-la e virar o responsável principal.
-                    Se você foi convidado por e-mail, deixe em branco.
-                  </small>
-                </label>
+                {!temConvite && (
+                  <label className="campo">
+                    <span>Empresa</span>
+                    <div className="campo-input">
+                      <Building2 size={17} />
+                      <input value={empresa} onChange={(e) => setEmpresa(e.target.value)}
+                        placeholder="Nome da sua empresa" autoComplete="organization" />
+                    </div>
+                    <small className="ajuda">
+                      Informe a empresa para criá-la e virar o responsável principal.
+                      Se você foi convidado por e-mail, use o link individual recebido.
+                    </small>
+                  </label>
+                )}
               </>
             )}
 
@@ -340,6 +391,10 @@ export default function LoginPage() {
               </>
             ) : modo === 'recuperar' ? (
               <button type="button" onClick={() => setModo('entrar')}>Voltar para o login</button>
+            ) : temConvite ? (
+              <button type="button" onClick={() => setModo(modo === 'entrar' ? 'cadastrar' : 'entrar')}>
+                {modo === 'entrar' ? 'Criar conta com convite' : 'Já tenho conta'}
+              </button>
             ) : (
               <button type="button" onClick={() => setModo('recuperar')}>Esqueci minha senha</button>
             )}

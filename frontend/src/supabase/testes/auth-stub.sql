@@ -61,3 +61,6 @@ language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',
 
 do $$ begin create role anon; exception when duplicate_object then null; end $$;
 do $$ begin create role authenticated; exception when duplicate_object then null; end $$;
+do $$ begin create role service_role; exception when duplicate_object then null; end $$;
+-- 0011 ajusta default privileges do owner `postgres`; o stub precisa desse papel.
+do $$ begin create role postgres; exception when duplicate_object then null; end $$;
