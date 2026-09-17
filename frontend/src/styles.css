@@ -3450,3 +3450,64 @@ main > header select { width: auto; min-width: 135px; }
   .login-panel { padding-top: max(24px, env(safe-area-inset-top)); }
 }
 
+/* Sheet "Personalizar atalhos" da bottom navigation (só existe no shell mobile) */
+@media (max-width: 760px) {
+  .sheet-atalhos { gap: 12px; max-height: calc(100dvh - 24px); }
+  .atalhos-cabecalho { display: grid; gap: 8px; padding: 2px 4px 0; }
+  .atalhos-cabecalho h3 { font-size: 1.05rem; }
+  .atalhos-cabecalho p { color: var(--txt-fraco); font-size: .82rem; line-height: 1.4; }
+  .atalhos-contador {
+    justify-self: start; padding: 4px 9px; border-radius: 999px;
+    background: var(--sup-3); color: var(--txt-suave); font-size: .74rem; font-weight: 650;
+  }
+  .atalhos-contador.limite { background: color-mix(in srgb, var(--ambar) 16%, transparent); color: var(--ambar); }
+
+  /* Prévia: reproduz a barra em miniatura, na ordem que será salva */
+  .atalhos-previa {
+    display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
+    padding: 6px 4px; border: 1px solid var(--borda); border-radius: var(--raio-sm); background: var(--sup-2);
+  }
+  .atalhos-previa > span { display: grid; justify-items: center; gap: 3px; min-width: 0; padding: 4px 2px; color: var(--txt-suave); }
+  .atalhos-previa > span.fixo { color: var(--txt-fraco); }
+  .atalhos-previa small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .6rem; font-weight: 600; }
+
+  .atalhos-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+  .atalhos-lista li { display: flex; align-items: center; gap: 4px; min-width: 0; }
+  .atalhos-lista li.bloqueado .atalhos-item { opacity: .45; cursor: not-allowed; }
+  .atalhos-item {
+    flex: 1 1 auto; min-width: 0; min-height: 48px;
+    display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+    border: 1px solid var(--borda); border-radius: var(--raio-sm); background: var(--sup-1);
+    color: var(--txt-suave); font: inherit; font-size: .92rem; font-weight: 520; text-align: left; cursor: pointer;
+    transition: border-color var(--transicao), background var(--transicao), color var(--transicao);
+  }
+  .atalhos-item:focus-visible { outline: none; border-color: var(--primaria); box-shadow: 0 0 0 3px var(--primaria-suave); }
+  .atalhos-item[aria-pressed="true"] { border-color: color-mix(in srgb, var(--primaria) 55%, var(--borda)); background: var(--primaria-suave); color: var(--txt); }
+  .atalhos-marca {
+    display: grid; place-items: center; flex: 0 0 auto; width: 24px; height: 24px; border-radius: 999px;
+    background: var(--sup-3); color: var(--txt-fraco); font-size: .74rem; font-weight: 750;
+  }
+  .atalhos-item[aria-pressed="true"] .atalhos-marca { background: var(--primaria); color: var(--primaria-texto); }
+  .atalhos-nome { flex: 1 1 auto; min-width: 0; overflow-wrap: break-word; line-height: 1.25; }
+  .atalhos-check { flex: 0 0 auto; color: var(--primaria-forte); }
+  .atalhos-ordem { display: flex; flex: 0 0 auto; gap: 2px; }
+  .atalhos-ordem .icone-btn { width: 40px; height: 40px; border: 1px solid var(--borda); background: var(--sup-1); color: var(--txt-suave); }
+  .atalhos-ordem .icone-btn:disabled { opacity: .35; cursor: default; background: var(--sup-1); }
+
+  /* Acoes ficam visiveis mesmo com a lista rolando dentro do sheet */
+  .atalhos-acoes {
+    position: sticky; bottom: calc(-14px - env(safe-area-inset-bottom)); z-index: 1;
+    display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px;
+    margin: 0 -12px calc(-14px - env(safe-area-inset-bottom)); padding: 10px 12px calc(14px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--borda); background: var(--sup-1);
+  }
+  .atalhos-acoes > div { display: flex; gap: 8px; margin-left: auto; }
+  .atalhos-acoes .btn { min-height: 42px; }
+}
+
+/* Em 320px o nome do modulo precisa caber inteiro ao lado das setas de ordem */
+@media (max-width: 360px) {
+  .atalhos-item { gap: 8px; padding: 8px; font-size: .84rem; }
+  .atalhos-ordem .icone-btn { width: 36px; height: 40px; }
+  .atalhos-acoes .btn { padding-inline: 10px; font-size: .88rem; }
+}

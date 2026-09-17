@@ -4,7 +4,7 @@ import { ChevronDown, ChevronsLeft, ChevronsRight, LogOut, MapPin, Moon, Search,
 import { navegacaoVisivel } from './navegacao'
 import { AnimatedIcon } from './AnimatedIcon'
 import { CommandPalette } from './CommandPalette'
-import { BottomNav, MenuMais } from './BottomNav'
+import { BottomNav, MenuMais, PersonalizarAtalhos } from './BottomNav'
 import { useApp } from '../lib/app-state'
 import { useAuth } from '../auth/AuthProvider'
 import { useMediaQuery, QUERY_MOBILE } from '../hooks/useMediaQuery'
@@ -42,6 +42,7 @@ export default function Layout() {
   const { profile, sair } = useAuth()
   const [recolhida, setRecolhida] = useState(false)
   const [maisAberto, setMaisAberto] = useState(false)
+  const [personalizarAberto, setPersonalizarAberto] = useState(false)
   const [escopoAberto, setEscopoAberto] = useState(false)
   const botaoMaisRef = useRef<HTMLButtonElement | null>(null)
   const ehMobile = useMediaQuery(QUERY_MOBILE)
@@ -61,6 +62,9 @@ export default function Layout() {
   useEffect(() => { setEscopoAberto(false) }, [pathname])
 
   const fecharMais = useCallback(() => setMaisAberto(false), [])
+  const fecharPersonalizar = useCallback(() => setPersonalizarAberto(false), [])
+  // "Personalizar atalhos" troca o sheet do Mais pelo de personalização; o foco volta ao botão Mais ao fechar.
+  const abrirPersonalizar = useCallback(() => { setMaisAberto(false); setPersonalizarAberto(true) }, [])
 
   const iniciais = (profile?.nome ?? 'US')
     .split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('') || 'US'
@@ -166,7 +170,8 @@ export default function Layout() {
       {ehMobile && (
         <>
           <BottomNav maisAberto={maisAberto} onAlternarMais={() => setMaisAberto((v) => !v)} botaoMaisRef={botaoMaisRef} />
-          <MenuMais aberto={maisAberto} onFechar={fecharMais} aoFecharFocar={botaoMaisRef} />
+          <MenuMais aberto={maisAberto} onFechar={fecharMais} onPersonalizar={abrirPersonalizar} aoFecharFocar={botaoMaisRef} />
+          <PersonalizarAtalhos aberto={personalizarAberto} onFechar={fecharPersonalizar} aoFecharFocar={botaoMaisRef} />
         </>
       )}
 

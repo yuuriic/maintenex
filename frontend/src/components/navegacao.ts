@@ -37,19 +37,37 @@ export function navegacaoVisivel(ehSuperAdmin: boolean) {
 }
 
 /**
- * Deriva a navegação mobile da MESMA lista da sidebar: a autorização é a de
- * navegacaoVisivel, aqui só muda a apresentação. `atalhosPersonalizados` (ids,
- * em ordem) é o gancho para a futura tela "Personalizar atalhos"; ids inválidos
- * ou sem permissão são ignorados e o restante é completado pela prioridade padrão.
+ * Cruza ids salvos (profiles.atalhos_mobile) com o que o usuário pode ver: descarta
+ * ids desconhecidos, duplicados e módulos sem permissão, e corta no limite da barra.
+ * É a única porta de entrada da preferência persistida — ela nunca concede acesso.
  */
-export function navegacaoMobile(ehSuperAdmin: boolean, atalhosPersonalizados: string[] = []) {
+export function filtrarAtalhosPermitidos(ids: readonly string[], ehSuperAdmin: boolean) {
   const visiveis = navegacaoVisivel(ehSuperAdmin)
-  const porPrioridade = [...visiveis].sort((a, b) => a.prioridadeMobile - b.prioridadeMobile)
-  const escolhidos = atalhosPersonalizados
+  const unicos = ids.filter((id, indice) => ids.indexOf(id) === indice)
+  return unicos
     .map((id) => visiveis.find((item) => item.id === id))
     .filter((item): item is ItemNav => !!item)
-  const atalhos = [...escolhidos, ...porPrioridade.filter((item) => !escolhidos.includes(item))]
     .slice(0, LIMITE_ATALHOS_MOBILE)
+}
+
+/** Atalhos que a barra mostra quando o usuário nunca personalizou: os de menor prioridade. */
+export function atalhosPadrao(ehSuperAdmin: boolean) {
+  return [...navegacaoVisivel(ehSuperAdmin)]
+    .sort((a, b) => a.prioridadeMobile - b.prioridadeMobile)
+    .slice(0, LIMITE_ATALHOS_MOBILE)
+}
+
+/**
+ * Deriva a navegação mobile da MESMA lista da sidebar: a autorização é a de
+ * navegacaoVisivel, aqui só muda a apresentação. Com `atalhosPersonalizados`
+ * (ids em ordem, vindos do perfil) a barra mostra exatamente o que o usuário
+ * escolheu e ainda tem permissão de ver — pode ser menos que o limite. Sem
+ * personalização (null) ou se nada sobrar após o filtro, vale a prioridade padrão.
+ */
+export function navegacaoMobile(ehSuperAdmin: boolean, atalhosPersonalizados?: readonly string[] | null) {
+  const visiveis = navegacaoVisivel(ehSuperAdmin)
+  const escolhidos = atalhosPersonalizados ? filtrarAtalhosPermitidos(atalhosPersonalizados, ehSuperAdmin) : []
+  const atalhos = escolhidos.length ? escolhidos : atalhosPadrao(ehSuperAdmin)
   // "Mais" mantém a ordem da sidebar para o usuário reconhecer a mesma sequência do desktop.
   const demais = visiveis.filter((item) => !atalhos.includes(item))
   return { atalhos, demais }

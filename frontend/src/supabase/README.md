@@ -21,6 +21,7 @@ Migrations reproduzíveis e ordenadas do schema Supabase.
 11. `20260910235534_dashboard_personalizacao.sql` — adiciona layout de dashboard por empresa, catálogo de 62 visuais no frontend e RLS administrativo
 12. `20260911120000_team_invites.sql` — adiciona convites de equipe tokenizados, status de envio, mutações server-side e aceite seguro por token
 13. `20260914010000_fix_rls_helper_row_security.sql` — reescreve as helpers `empresa_atual()`, `eh_super_admin()`, `pode_*()` com `set row_security = off` (fix de recursão de RLS que existia só em produção); deve ser a última a redefinir essas funções
+14. `20260916120000_atalhos_mobile_perfil.sql` — adiciona `profiles.atalhos_mobile` (jsonb, ids dos módulos fixados na bottom navigation mobile, por usuário; NULL = padrão). Preferência visual validada contra `navegacaoVisivel()` no frontend; nenhuma política de RLS muda
 
 **Aplicação automática via Supabase CLI (somente para ambientes autorizados):**
 ```bash

@@ -85,15 +85,33 @@ create table if not exists profiles (
   cidade_id uuid,
   avatar_url text,
   ativo boolean not null default true,
-  criado_em timestamptz not null default now()
+  criado_em timestamptz not null default now(),
+  atalhos_mobile jsonb
 );
 
 -- Mantém instalações existentes alinhadas com as migrations incrementais.
 alter table profiles
   add column if not exists telefone text,
-  add column if not exists email_verificado boolean not null default false;
+  add column if not exists email_verificado boolean not null default false,
+  add column if not exists atalhos_mobile jsonb;
 
 create index if not exists idx_profiles_telefone on profiles (telefone);
+
+-- Atalhos da bottom navigation mobile (migration 20260916120000_atalhos_mobile_perfil):
+-- NULL = padrão; senão array JSON de até 4 strings (ids de navegacao.ts). Só a forma é
+-- validada aqui; a lista de módulos e a deduplicação ficam no frontend.
+alter table profiles drop constraint if exists profiles_atalhos_mobile_formato;
+alter table profiles
+  add constraint profiles_atalhos_mobile_formato check (
+    atalhos_mobile is null
+    or (
+      jsonb_typeof(atalhos_mobile) = 'array'
+      and jsonb_array_length(atalhos_mobile) <= 4
+      and not (atalhos_mobile @? '$[*] ? (@.type() != "string")')
+    )
+  );
+comment on column profiles.atalhos_mobile is
+  'Ids dos módulos (navegacao.ts) fixados na bottom navigation mobile, em ordem. NULL = padrão. Preferência visual; não concede acesso.';
 
 -- =========================================================
 -- Sincronização Supabase Auth → profiles

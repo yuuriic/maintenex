@@ -32,6 +32,8 @@ export interface Profile {
   id: string; empresa_id: string | null; nome: string; email: string; papel: PapelUsuario
   telefone: string | null; email_verificado: boolean
   cidade_id: string | null; avatar_url: string | null; ativo: boolean; criado_em: string
+  /** Ids de navegacao.ts fixados na bottom navigation mobile, em ordem. null = padrão por prioridade. */
+  atalhos_mobile?: string[] | null
   empresas?: Pick<Empresa, 'id' | 'nome' | 'slug' | 'status'> | null
 }
 
