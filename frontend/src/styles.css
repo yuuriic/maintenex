@@ -1619,11 +1619,47 @@ main > header select { width: auto; min-width: 135px; }
 
 @media (max-width: 760px) {
   .lp-teste-operational-stack { height: 340vh; }
-  .lp-teste-operational-stack > .lp-container { padding-top: 28px; }
+  /* No mobile, título + card não cabem juntos em 100svh: o painel sticky de altura fixa
+     deixava ao card só a sobra do viewport e o overflow:clip cortava o rodapé. Aqui o
+     título fica no fluxo normal e apenas a pilha gruda na tela, com altura do conteúdo. */
+  .lp-teste-operational-stack > .lp-container {
+    position: static;
+    display: block;
+    height: 100%;
+    padding-top: 28px;
+    overflow: visible;
+  }
   .lp-teste-stack-head { margin-bottom: 18px; }
   .lp-teste-stack-head h2 { font-size: clamp(2.6rem, 14vw, 4.8rem); }
   .lp-teste-stack-head p { font-size: .95rem; }
-  .lp-teste-step-card { height: min(560px, calc(100% - 6px)); padding: 20px; border-radius: 24px; }
+  .lp-teste-operational-stack .scroll-stack-scroller {
+    position: sticky;
+    top: clamp(10px, 2svh, 20px);
+    height: auto;
+    /* Área de clip precisa conter o deslocamento da pilha (2 × 16px no JS) e a sombra;
+       os cards que entram por baixo continuam ocultos até deslizarem para dentro. */
+    padding-bottom: 48px;
+    overflow: clip;
+  }
+  /* Acima de 650px (celular em paisagem) o JS usa o itemStackDistance de 42px: 2 × 42 + sombra. */
+  @media (min-width: 651px) {
+    .lp-teste-operational-stack .scroll-stack-scroller { padding-bottom: 100px; }
+  }
+  /* Todos os cards na mesma célula: continuam sobrepostos (efeito de pilha), mas agora é
+     o card mais alto que define a altura da pilha, em vez da sobra do viewport. */
+  .lp-teste-operational-stack .scroll-stack-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+  }
+  .lp-teste-step-card {
+    grid-area: 1 / 1;
+    position: relative;
+    inset: auto;
+    height: auto;
+    padding: 20px;
+    border-radius: 24px;
+  }
   .lp-teste-step-body { grid-template-columns: 1fr; align-content: center; gap: 14px; text-align: left; }
   .lp-teste-step-icon { width: 62px; height: 62px; }
   .lp-teste-step-number { margin-bottom: 4px; font-size: 3.2rem; }
@@ -1632,10 +1668,15 @@ main > header select { width: auto; min-width: 135px; }
   .lp-teste-step-metric { justify-self: stretch; min-width: 0; padding: 14px; text-align: left; }
   .lp-teste-step-metric strong { font-size: 2.4rem; }
   .lp-teste-step-top, .lp-teste-step-bottom { font-size: .64rem; gap: 10px; }
+  /* "Fase 0N" não quebra em duas linhas; é o rótulo longo ao lado que cede espaço. */
+  .lp-teste-step-top > span:first-child { flex: 0 0 auto; white-space: nowrap; }
   .lp-teste-step-bottom svg { width: 88px; }
 }
 
-@media (max-width: 760px) and (max-height: 760px) {
+/* Variante compacta só onde o card com altura de conteúdo (≈560–590px + 32px de pilha)
+   realmente não cabe no viewport: 320×568 e celulares em paisagem. Em 375×667 e
+   360×640 o card regular já cabe inteiro, então o número da fase permanece visível. */
+@media (max-width: 760px) and (max-height: 620px) {
   .lp-teste-operational-stack > .lp-container { padding: 16px 14px; }
   .lp-teste-stack-head { gap: 7px; margin-bottom: 10px; }
   .lp-teste-stack-head .lp-teste-section-kicker { min-height: 23px; font-size: .58rem; }
@@ -1648,7 +1689,8 @@ main > header select { width: auto; min-width: 135px; }
   .lp-teste-step-icon { width: 54px; height: 54px; }
   .lp-teste-step-copy h3 { font-size: clamp(1.55rem, 7.5vw, 2.1rem); }
   .lp-teste-step-copy p { font-size: .78rem; line-height: 1.35; }
-  .lp-teste-step-number { display: none; }
+  /* Número da fase permanece visível; só reduz proporcionalmente ao h3 compacto (≈1.5×). */
+  .lp-teste-step-number { margin-bottom: 4px; font-size: 2.4rem; }
   .lp-teste-step-metric { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; }
   .lp-teste-step-metric strong { font-size: 1.8rem; }
   .lp-teste-step-metric span { max-width: 18ch; margin-top: 0; text-align: right; font-size: .6rem; }

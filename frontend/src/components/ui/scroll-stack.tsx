@@ -119,7 +119,12 @@ export default function ScrollStack({
     if (!scroller) return
     const cards = Array.from(scroller.querySelectorAll<HTMLElement>('.scroll-stack-card'))
     cardsRef.current = cards
-    cards.forEach((card, index) => { if (index < cards.length - 1) card.style.marginBottom = `${itemDistance}px` })
+    // itemDistance separa cards em fluxo no modo de scroll interno. No modo window os
+    // cards nascem sobrepostos no mesmo ponto (absolute ou mesma célula de grid), então a
+    // margem nunca é visível — e inflaria a altura da pilha quando ela vem do conteúdo.
+    if (!useWindowScroll) {
+      cards.forEach((card, index) => { if (index < cards.length - 1) card.style.marginBottom = `${itemDistance}px` })
+    }
 
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
