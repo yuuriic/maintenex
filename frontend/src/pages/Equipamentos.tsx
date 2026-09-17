@@ -121,7 +121,7 @@ export default function Equipamentos() {
       </div>
 
       {carregando ? <Skeleton /> : !lista.length ? <Vazio texto="Nenhum equipamento encontrado" /> : (
-        <div className="tabela-wrap">
+        <div className="tabela-wrap responsiva">
           <table className="tabela">
             <thead>
               <tr>
@@ -132,18 +132,18 @@ export default function Equipamentos() {
             <tbody>
               {lista.map((e) => (
                 <tr key={e.id}>
-                  <td><code>{e.codigo}</code></td>
-                  <td>
+                  <td data-rotulo="Código"><code>{e.codigo}</code></td>
+                  <td className="principal">
                     <div className="celula-principal">
                       <Printer size={16} />
                       <div><b>{e.nome}</b><small>{[e.marca, e.modelo].filter(Boolean).join(' · ') || '—'}</small></div>
                     </div>
                   </td>
-                  <td>{e.setores?.nome ?? '—'}</td>
-                  <td>{e.localizacao ?? '—'}</td>
-                  <td>{nf.format(e.contador)}</td>
-                  <td>{data(e.proxima_manutencao)}</td>
-                  <td><Badge tom={tomStatus[e.status]}>{titulo(e.status)}</Badge></td>
+                  <td data-rotulo="Setor">{e.setores?.nome ?? '—'}</td>
+                  <td data-rotulo="Local">{e.localizacao ?? '—'}</td>
+                  <td data-rotulo="Contador">{nf.format(e.contador)}</td>
+                  <td data-rotulo="Próxima manut.">{data(e.proxima_manutencao)}</td>
+                  <td data-rotulo="Status"><Badge tom={tomStatus[e.status]}>{titulo(e.status)}</Badge></td>
                   <td className="acoes">
                     <button className="icone-btn" onClick={() => abrirEdicao(e)} aria-label="Editar"><Pencil size={15} /></button>
                     <button className="icone-btn perigo" onClick={() => setExcluir(e)} aria-label="Excluir"><Trash2 size={15} /></button>

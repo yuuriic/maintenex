@@ -115,7 +115,7 @@ export default function Empresas() {
       </div>
 
       {carregando ? <Skeleton /> : !lista.length ? <Vazio texto="Nenhuma empresa cadastrada" /> : (
-        <div className="tabela-wrap">
+        <div className="tabela-wrap responsiva">
           <table className="tabela">
             <thead>
               <tr><th>Empresa</th><th>Identificador</th><th>Responsável</th><th>Usuários</th><th>Criada em</th><th>Status</th><th /></tr>
@@ -123,17 +123,17 @@ export default function Empresas() {
             <tbody>
               {lista.map((e) => (
                 <tr key={e.id}>
-                  <td>
+                  <td className="principal">
                     <div className="celula-principal">
                       <Building2 size={16} />
                       <div><b>{e.nome}</b><small>{e.cnpj ?? 'Sem CNPJ'}</small></div>
                     </div>
                   </td>
-                  <td><code>{e.slug}</code></td>
-                  <td>{e.email_principal ?? '—'}</td>
-                  <td>{nf.format(contagem[e.id] ?? 0)}</td>
-                  <td>{data(e.criado_em)}</td>
-                  <td>
+                  <td data-rotulo="Identificador"><code>{e.slug}</code></td>
+                  <td data-rotulo="Responsável">{e.email_principal ?? '—'}</td>
+                  <td data-rotulo="Usuários">{nf.format(contagem[e.id] ?? 0)}</td>
+                  <td data-rotulo="Criada em">{data(e.criado_em)}</td>
+                  <td data-rotulo="Status">
                     <select value={e.status} onChange={(ev) => void mudarStatus(e, ev.target.value as StatusEmpresa)}>
                       <option value="ativa">Ativa</option>
                       <option value="suspensa">Suspensa</option>

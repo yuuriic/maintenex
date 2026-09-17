@@ -147,7 +147,7 @@ function OperacaoVisual({ tipo, criticas, eventos, proximas }: { tipo: string; c
 
 function TabelaVisual({ equipamentos }: { equipamentos: Equipamento[] }) {
   if (!equipamentos.length) return <Vazio texto="Nenhum equipamento no recorte" compacto />
-  return <div className="tabela-wrap"><table className="tabela"><thead><tr><th>Código</th><th>Equipamento</th><th>Status</th></tr></thead><tbody>{equipamentos.slice(0, 8).map((item) => <tr key={item.id}><td><b>{item.codigo}</b></td><td>{item.nome}</td><td><Badge tom={item.status === 'ativo' ? 'verde' : item.status === 'manutencao' ? 'ambar' : 'cinza'}>{rotulo(item.status)}</Badge></td></tr>)}</tbody></table></div>
+  return <div className="tabela-wrap responsiva"><table className="tabela"><thead><tr><th>Código</th><th>Equipamento</th><th>Status</th></tr></thead><tbody>{equipamentos.slice(0, 8).map((item) => <tr key={item.id}><td data-rotulo="Código"><b>{item.codigo}</b></td><td className="principal">{item.nome}</td><td data-rotulo="Status"><Badge tom={item.status === 'ativo' ? 'verde' : item.status === 'manutencao' ? 'ambar' : 'cinza'}>{rotulo(item.status)}</Badge></td></tr>)}</tbody></table></div>
 }
 
 function LinksVisual() {

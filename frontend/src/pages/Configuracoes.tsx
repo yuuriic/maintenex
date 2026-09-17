@@ -463,15 +463,15 @@ export default function Configuracoes() {
         <div className="config-grid">
           <Painel titulo="Usuários da empresa">
             {!equipe?.length ? <Vazio texto="Nenhum usuário" compacto /> : (
-              <div className="tabela-wrap">
+              <div className="tabela-wrap responsiva">
                 <table className="tabela">
                   <thead><tr><th>Nome</th><th>E-mail</th><th>Papel</th><th>Situação</th></tr></thead>
                   <tbody>
                     {equipe.map((p) => (
                       <tr key={p.id}>
-                        <td><b>{p.nome}</b>{p.id === profile?.id && <Badge tom="azul">você</Badge>}</td>
-                        <td>{p.email}</td>
-                        <td>
+                        <td className="principal"><b>{p.nome}</b>{p.id === profile?.id && <Badge tom="azul">você</Badge>}</td>
+                        <td data-rotulo="E-mail">{p.email}</td>
+                        <td data-rotulo="Papel">
                           {podeAdministrar && p.id !== profile?.id && p.papel !== 'super_admin' ? (
                             <select value={p.papel} onChange={(e) => void mudarPapel(p.id, e.target.value as PapelUsuario)}>
                               {PAPEIS_ATRIBUIVEIS.map((op) => <option key={op.valor} value={op.valor}>{op.rotulo}</option>)}
@@ -480,7 +480,7 @@ export default function Configuracoes() {
                             <Badge tom={tomPapel[p.papel]}>{titulo(p.papel)}</Badge>
                           )}
                         </td>
-                        <td>
+                        <td data-rotulo="Situação">
                           {podeAdministrar && p.id !== profile?.id ? (
                             <button className="btn mini" onClick={() => void alternarAtivo(p)}>
                               {p.ativo ? 'Desativar' : 'Reativar'}
