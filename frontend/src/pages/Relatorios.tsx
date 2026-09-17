@@ -191,7 +191,7 @@ export default function Relatorios() {
 
             <Painel titulo="Equipamentos que mais exigem atenção" className="span-3">
               {!rel.rankingEquip.length ? <Vazio compacto /> : (
-                <div className="tabela-wrap">
+                <div className="tabela-wrap responsiva">
                   <table className="tabela">
                     <thead>
                       <tr><th>#</th><th>Código</th><th>Equipamento</th><th>Setor</th>
@@ -200,15 +200,15 @@ export default function Relatorios() {
                     <tbody>
                       {rel.rankingEquip.map((e, i) => (
                         <tr key={e.codigo}>
-                          <td><span className="posicao">{i + 1}</span></td>
-                          <td><code>{e.codigo}</code></td>
-                          <td><b>{e.nome}</b></td>
-                          <td>{e.setor}</td>
-                          <td>{e.corretivas}</td>
-                          <td>{e.preventivas}</td>
-                          <td>{e.pendencias}</td>
-                          <td>{nf.format(e.contador)}</td>
-                          <td>{data(e.ultima)}</td>
+                          <td data-rotulo="Posição"><span className="posicao">{i + 1}</span></td>
+                          <td data-rotulo="Código"><code>{e.codigo}</code></td>
+                          <td className="principal"><b>{e.nome}</b></td>
+                          <td data-rotulo="Setor">{e.setor}</td>
+                          <td data-rotulo="Corretivas">{e.corretivas}</td>
+                          <td data-rotulo="Preventivas">{e.preventivas}</td>
+                          <td data-rotulo="Pendências">{e.pendencias}</td>
+                          <td data-rotulo="Contador">{nf.format(e.contador)}</td>
+                          <td data-rotulo="Última manut.">{data(e.ultima)}</td>
                         </tr>
                       ))}
                     </tbody>

@@ -1619,11 +1619,47 @@ main > header select { width: auto; min-width: 135px; }
 
 @media (max-width: 760px) {
   .lp-teste-operational-stack { height: 340vh; }
-  .lp-teste-operational-stack > .lp-container { padding-top: 28px; }
+  /* No mobile, título + card não cabem juntos em 100svh: o painel sticky de altura fixa
+     deixava ao card só a sobra do viewport e o overflow:clip cortava o rodapé. Aqui o
+     título fica no fluxo normal e apenas a pilha gruda na tela, com altura do conteúdo. */
+  .lp-teste-operational-stack > .lp-container {
+    position: static;
+    display: block;
+    height: 100%;
+    padding-top: 28px;
+    overflow: visible;
+  }
   .lp-teste-stack-head { margin-bottom: 18px; }
   .lp-teste-stack-head h2 { font-size: clamp(2.6rem, 14vw, 4.8rem); }
   .lp-teste-stack-head p { font-size: .95rem; }
-  .lp-teste-step-card { height: min(560px, calc(100% - 6px)); padding: 20px; border-radius: 24px; }
+  .lp-teste-operational-stack .scroll-stack-scroller {
+    position: sticky;
+    top: clamp(10px, 2svh, 20px);
+    height: auto;
+    /* Área de clip precisa conter o deslocamento da pilha (2 × 16px no JS) e a sombra;
+       os cards que entram por baixo continuam ocultos até deslizarem para dentro. */
+    padding-bottom: 48px;
+    overflow: clip;
+  }
+  /* Acima de 650px (celular em paisagem) o JS usa o itemStackDistance de 42px: 2 × 42 + sombra. */
+  @media (min-width: 651px) {
+    .lp-teste-operational-stack .scroll-stack-scroller { padding-bottom: 100px; }
+  }
+  /* Todos os cards na mesma célula: continuam sobrepostos (efeito de pilha), mas agora é
+     o card mais alto que define a altura da pilha, em vez da sobra do viewport. */
+  .lp-teste-operational-stack .scroll-stack-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+  }
+  .lp-teste-step-card {
+    grid-area: 1 / 1;
+    position: relative;
+    inset: auto;
+    height: auto;
+    padding: 20px;
+    border-radius: 24px;
+  }
   .lp-teste-step-body { grid-template-columns: 1fr; align-content: center; gap: 14px; text-align: left; }
   .lp-teste-step-icon { width: 62px; height: 62px; }
   .lp-teste-step-number { margin-bottom: 4px; font-size: 3.2rem; }
@@ -1632,10 +1668,15 @@ main > header select { width: auto; min-width: 135px; }
   .lp-teste-step-metric { justify-self: stretch; min-width: 0; padding: 14px; text-align: left; }
   .lp-teste-step-metric strong { font-size: 2.4rem; }
   .lp-teste-step-top, .lp-teste-step-bottom { font-size: .64rem; gap: 10px; }
+  /* "Fase 0N" não quebra em duas linhas; é o rótulo longo ao lado que cede espaço. */
+  .lp-teste-step-top > span:first-child { flex: 0 0 auto; white-space: nowrap; }
   .lp-teste-step-bottom svg { width: 88px; }
 }
 
-@media (max-width: 760px) and (max-height: 760px) {
+/* Variante compacta só onde o card com altura de conteúdo (≈560–590px + 32px de pilha)
+   realmente não cabe no viewport: 320×568 e celulares em paisagem. Em 375×667 e
+   360×640 o card regular já cabe inteiro, então o número da fase permanece visível. */
+@media (max-width: 760px) and (max-height: 620px) {
   .lp-teste-operational-stack > .lp-container { padding: 16px 14px; }
   .lp-teste-stack-head { gap: 7px; margin-bottom: 10px; }
   .lp-teste-stack-head .lp-teste-section-kicker { min-height: 23px; font-size: .58rem; }
@@ -1648,7 +1689,8 @@ main > header select { width: auto; min-width: 135px; }
   .lp-teste-step-icon { width: 54px; height: 54px; }
   .lp-teste-step-copy h3 { font-size: clamp(1.55rem, 7.5vw, 2.1rem); }
   .lp-teste-step-copy p { font-size: .78rem; line-height: 1.35; }
-  .lp-teste-step-number { display: none; }
+  /* Número da fase permanece visível; só reduz proporcionalmente ao h3 compacto (≈1.5×). */
+  .lp-teste-step-number { margin-bottom: 4px; font-size: 2.4rem; }
   .lp-teste-step-metric { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; }
   .lp-teste-step-metric strong { font-size: 1.8rem; }
   .lp-teste-step-metric span { max-width: 18ch; margin-top: 0; text-align: right; font-size: .6rem; }
@@ -3189,4 +3231,283 @@ main > header select { width: auto; min-width: 135px; }
   .dashboard-builder-toolbar .dashboard-customizer-actions { display: grid; grid-template-columns: 1fr 1fr; }
   .dashboard-builder-toolbar .dashboard-customizer-actions .dashboard-widget-count,
   .dashboard-builder-toolbar .dashboard-customizer-actions .badge { grid-column: 1 / -1; }
+}
+
+/* =========================================================
+   Shell mobile (≤ 760px)
+   A sidebar sai do fluxo e vira bottom navigation fixa; o conteúdo usa a
+   largura toda. Só apresentação: rotas e permissões vêm de navegacao.ts.
+   Nada aqui roda acima de 760px — o desktop permanece intacto.
+   ========================================================= */
+@media (max-width: 760px) {
+  :root { --bottom-nav-h: 60px; }
+
+  .shell.shell-mobile {
+    grid-template-columns: minmax(0, 1fr);
+    height: 100dvh;
+    /* Barras do Safari entram e saem: svh evita o pulo do rodapé fixo. */
+    min-height: 100svh;
+  }
+  .shell.shell-mobile > aside { display: none; }
+  .shell.shell-mobile > main {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* Topbar: marca + escopo atual (abre os selects) + busca + avatar, numa linha que cabe em 320px. */
+  .topbar-mobile {
+    display: grid;
+    gap: 8px;
+    padding: calc(8px + env(safe-area-inset-top)) 12px 8px;
+  }
+  .topbar-mobile-linha { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .topbar-mobile .brand-mark { width: 30px; height: 30px; }
+  .topbar-mobile .profile { width: 34px; height: 34px; }
+  .topbar-acao { width: 38px; height: 38px; flex: 0 0 auto; color: var(--txt-suave); }
+  .escopo-atual {
+    flex: 1 1 auto; min-width: 0; height: 38px;
+    display: flex; align-items: center; gap: 7px; padding: 0 10px;
+    background: var(--sup-1); border: 1px solid var(--borda); border-radius: var(--raio-sm);
+    color: var(--txt-suave); font-size: .82rem; font-weight: 550; cursor: pointer; text-align: left;
+    transition: border-color var(--transicao), color var(--transicao);
+  }
+  .escopo-atual > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .escopo-atual > svg { flex: 0 0 auto; color: var(--txt-fraco); transition: transform var(--transicao); }
+  .escopo-atual > svg.girado { transform: rotate(180deg); }
+  .escopo-atual[aria-expanded="true"], .escopo-atual:focus-visible { border-color: var(--primaria); color: var(--txt); }
+  .escopo-atual:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--primaria-suave); }
+  .escopo-mobile { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+  .escopo-mobile[hidden] { display: none; }
+  .escopo-mobile select { width: 100%; min-width: 0; }
+
+  /* O conteúdo rola por baixo da bottom nav: reserva a altura dela + safe-area + folga. */
+  .shell-mobile .content {
+    padding: 14px 14px calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + 20px);
+    overscroll-behavior-y: contain;
+  }
+  .shell-mobile .content > section { max-width: none; }
+
+  /* Bottom navigation */
+  .bottom-nav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+    display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
+    height: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom));
+    padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    background: color-mix(in srgb, var(--sup-1) 92%, transparent);
+    backdrop-filter: blur(14px) saturate(120%);
+    border-top: 1px solid var(--borda);
+  }
+  .bottom-nav > a, .bottom-nav > button {
+    min-width: 0; min-height: 48px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    padding: 6px 2px 5px; margin: 0;
+    background: transparent; border: 0; border-radius: 0;
+    color: var(--txt-fraco); text-decoration: none; font: inherit; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: color var(--transicao);
+  }
+  .bottom-nav > a > svg, .bottom-nav > button > svg {
+    flex: 0 0 auto; padding: 3px 12px; border-radius: 999px; box-sizing: content-box;
+    transition: background var(--transicao), color var(--transicao), transform var(--transicao);
+  }
+  .bottom-nav span {
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: .64rem; font-weight: 560; letter-spacing: -.005em; line-height: 1.2;
+  }
+  .bottom-nav > a:hover, .bottom-nav > button:hover { color: var(--txt-suave); }
+  .bottom-nav > a.active, .bottom-nav > button.active { color: var(--txt); }
+  /* Regras da sidebar (nav a.active::before, gap do nav) nao valem aqui nem no sheet. */
+  .bottom-nav { gap: 0; }
+  .bottom-nav > a.active::before, .sheet-nav a.active::before { content: none; }
+  .bottom-nav > a.active > svg, .bottom-nav > button.active > svg {
+    background: var(--primaria-suave); color: var(--primaria-forte); transform: translateY(-1px);
+  }
+  .bottom-nav > a.active span, .bottom-nav > button.active span { font-weight: 680; }
+  .bottom-nav > a:focus-visible, .bottom-nav > button:focus-visible {
+    outline: none; color: var(--txt);
+  }
+  .bottom-nav > a:focus-visible > svg, .bottom-nav > button:focus-visible > svg { box-shadow: 0 0 0 3px var(--primaria-suave); }
+
+  /* Bottom sheet do "Mais" */
+  .sheet-fundo {
+    position: fixed; inset: 0; z-index: 70;
+    display: flex; align-items: flex-end;
+    background: rgba(4, 8, 20, .62); backdrop-filter: blur(4px);
+    animation: aparecer 160ms ease;
+  }
+  .sheet {
+    width: 100%; max-height: calc(100dvh - 40px);
+    display: grid; gap: 10px; overflow-y: auto;
+    padding: 8px 12px calc(14px + env(safe-area-inset-bottom));
+    background: var(--sup-1); border: 1px solid var(--borda); border-bottom: 0;
+    border-radius: 18px 18px 0 0; box-shadow: var(--sombra);
+    animation: subir-sheet 240ms cubic-bezier(.3, 1.1, .5, 1);
+  }
+  @keyframes subir-sheet { from { transform: translateY(24px); opacity: .4; } to { transform: none; opacity: 1; } }
+  .sheet-alca { width: 38px; height: 4px; margin: 0 auto 2px; border-radius: 999px; background: var(--borda-forte); }
+  .sheet-perfil { display: flex; align-items: center; gap: 10px; padding: 6px 4px 10px; border-bottom: 1px solid var(--borda); min-width: 0; }
+  .sheet-perfil .perfil-texto { min-width: 0; }
+  .sheet-perfil b, .sheet-perfil small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sheet-perfil small { text-transform: none; }
+  .sheet-papel { text-transform: capitalize; }
+  .sheet-nav { display: grid; gap: 2px; }
+  .sheet-acoes { display: grid; gap: 2px; padding-top: 8px; border-top: 1px solid var(--borda); }
+  .sheet-item {
+    display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px;
+    padding: 10px 12px; border: 0; border-radius: var(--raio-sm);
+    background: transparent; color: var(--txt-suave); font: inherit; font-size: .95rem; font-weight: 520;
+    text-decoration: none; text-align: left; cursor: pointer;
+    transition: background var(--transicao), color var(--transicao);
+  }
+  .sheet-item svg { flex: 0 0 auto; }
+  .sheet-item:hover, .sheet-item:focus-visible { background: var(--sup-3); color: var(--txt); outline: none; }
+  .sheet-item.active { background: var(--sup-3); color: var(--txt); font-weight: 620; }
+  .sheet-item.perigo { color: var(--vermelho); }
+  .sheet-item.perigo:hover { background: color-mix(in srgb, var(--vermelho) 12%, transparent); color: var(--vermelho); }
+
+  /* Toasts acima da bottom nav e dentro da largura */
+  .toasts { left: 12px; right: 12px; bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + 10px); }
+  .toast { min-width: 0; max-width: none; }
+
+  /* Modais: margens seguras, altura em dvh e ancorados embaixo como um sheet */
+  .modal-fundo { padding: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); align-items: end; }
+  .modal-fundo.topo { align-items: start; padding-top: max(8vh, calc(10px + env(safe-area-inset-top))); }
+  .modal { max-height: calc(100dvh - 20px - env(safe-area-inset-bottom)); }
+  .modal > header { padding: 13px 14px; }
+  .modal-corpo { padding: 14px; }
+  .modal-acoes { flex-wrap: wrap; }
+  .paleta { max-width: none; }
+
+  /* Cabeçalho de página e filtros */
+  .title-row > .btn, .acoes-topo { width: 100%; }
+  .acoes-topo > .btn, .acoes-topo > select { flex: 1 1 auto; justify-content: center; min-width: 0; }
+  .acoes-topo > .btn { white-space: normal; text-align: center; }
+  .filtros { display: grid; grid-template-columns: minmax(0, 1fr); align-items: stretch; }
+  /* KPIs curtos cabem dois por linha ja em 320px */
+  .cards { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+  .checklist-card-titulo h3, .checklist-card-titulo p, .checklist-card-titulo small { white-space: normal; overflow-wrap: anywhere; }
+  .filtros .busca { grid-column: 1 / -1; min-width: 0; }
+  .filtros select { width: 100%; min-width: 0; }
+  .filtros .check-inline { white-space: normal; }
+  .linha-form > .btn { flex: 1 1 100%; justify-content: center; }
+
+  /* Abas viram chips com quebra de linha: todas visiveis, sem scroll interno nem escondido */
+  .abas { flex-wrap: wrap; gap: 6px; border-bottom: 0; }
+  .abas button {
+    flex: 0 0 auto; min-height: 36px; padding: 6px 12px;
+    border: 1px solid var(--borda); border-radius: 999px; background: var(--sup-1); font-size: .84rem;
+  }
+  .abas button.ativo { border-color: var(--primaria); background: var(--primaria-suave); color: var(--txt); }
+
+  /* Listas com ações à direita quebram linha em vez de estourar */
+  .lista-simples li { flex-wrap: wrap; }
+  .lista-simples li > .acoes { margin-left: auto; flex-wrap: wrap; justify-content: flex-start; }
+  .lista-simples li > .celula-principal { min-width: 0; flex: 1 1 200px; }
+  .celula-principal b, .celula-principal small { overflow-wrap: anywhere; }
+  .panel-head { flex-wrap: wrap; }
+  .tema-toggle { flex-wrap: wrap; }
+  .empty { padding: 28px 12px; }
+
+  /* Painéis do dashboard sempre em uma coluna */
+  .dashboard-grid, .dashboard-personalizado { grid-template-columns: minmax(0, 1fr); }
+  .dashboard-grid .span-2, .dashboard-grid .span-3 { grid-column: span 1; }
+  .dashboard-canvas-visual { grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); }
+  .dashboard-links-visual { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+  .dashboard-word-cloud { padding: 8px 0; }
+  .dashboard-metric-value { font-size: clamp(2rem, 11vw, 2.8rem); }
+  .dashboard-heatmap { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); }
+
+  /* Tabelas responsivas: cada linha vira um cartão; o rótulo da coluna vem de data-rotulo.
+     O scroll horizontal fica só para .tabela-wrap sem a classe (fallback consciente). */
+  .tabela-wrap.responsiva { overflow: visible; border: 0; border-radius: 0; }
+  .tabela-wrap.responsiva .tabela { min-width: 0; display: block; }
+  .tabela-wrap.responsiva thead { display: none; }
+  .tabela-wrap.responsiva tbody { display: grid; gap: 10px; }
+  .tabela-wrap.responsiva tr {
+    display: grid; grid-template-columns: minmax(0, 1fr); gap: 7px;
+    padding: 12px; border: 1px solid var(--borda); border-radius: var(--raio-sm); background: var(--sup-1);
+  }
+  .tabela-wrap.responsiva tbody tr:hover { background: var(--sup-1); }
+  .tabela-wrap.responsiva td {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    min-width: 0; padding: 0; border: 0; overflow-wrap: anywhere;
+  }
+  .tabela-wrap.responsiva td[data-rotulo]::before {
+    content: attr(data-rotulo); flex: 0 0 auto;
+    color: var(--txt-fraco); font-size: .7rem; font-weight: 650; letter-spacing: .05em; text-transform: uppercase;
+  }
+  .tabela-wrap.responsiva td[data-rotulo] { text-align: right; }
+  .tabela-wrap.responsiva td[data-rotulo] > * { min-width: 0; }
+  .tabela-wrap.responsiva td.principal { order: -1; display: block; padding-bottom: 8px; border-bottom: 1px solid var(--borda); }
+  .tabela-wrap.responsiva td.principal .celula-principal div { line-height: 1.3; }
+  .tabela-wrap.responsiva td.acoes { display: flex; justify-content: flex-end; padding-top: 8px; border-top: 1px solid var(--borda); white-space: normal; flex-wrap: wrap; }
+  .tabela-wrap.responsiva td.acoes > * { margin-left: 0; }
+  .tabela-wrap.responsiva .badge { margin-left: 0; }
+  .tabela-wrap.responsiva td select { width: auto; max-width: 100%; }
+  .tabela-wrap.responsiva td:empty { display: none; }
+
+  /* Login em standalone (PWA) respeita a barra de status */
+  .login-panel { padding-top: max(24px, env(safe-area-inset-top)); }
+}
+
+/* Sheet "Personalizar atalhos" da bottom navigation (só existe no shell mobile) */
+@media (max-width: 760px) {
+  .sheet-atalhos { gap: 12px; max-height: calc(100dvh - 24px); }
+  .atalhos-cabecalho { display: grid; gap: 8px; padding: 2px 4px 0; }
+  .atalhos-cabecalho h3 { font-size: 1.05rem; }
+  .atalhos-cabecalho p { color: var(--txt-fraco); font-size: .82rem; line-height: 1.4; }
+  .atalhos-contador {
+    justify-self: start; padding: 4px 9px; border-radius: 999px;
+    background: var(--sup-3); color: var(--txt-suave); font-size: .74rem; font-weight: 650;
+  }
+  .atalhos-contador.limite { background: color-mix(in srgb, var(--ambar) 16%, transparent); color: var(--ambar); }
+
+  /* Prévia: reproduz a barra em miniatura, na ordem que será salva */
+  .atalhos-previa {
+    display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
+    padding: 6px 4px; border: 1px solid var(--borda); border-radius: var(--raio-sm); background: var(--sup-2);
+  }
+  .atalhos-previa > span { display: grid; justify-items: center; gap: 3px; min-width: 0; padding: 4px 2px; color: var(--txt-suave); }
+  .atalhos-previa > span.fixo { color: var(--txt-fraco); }
+  .atalhos-previa small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .6rem; font-weight: 600; }
+
+  .atalhos-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+  .atalhos-lista li { display: flex; align-items: center; gap: 4px; min-width: 0; }
+  .atalhos-lista li.bloqueado .atalhos-item { opacity: .45; cursor: not-allowed; }
+  .atalhos-item {
+    flex: 1 1 auto; min-width: 0; min-height: 48px;
+    display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+    border: 1px solid var(--borda); border-radius: var(--raio-sm); background: var(--sup-1);
+    color: var(--txt-suave); font: inherit; font-size: .92rem; font-weight: 520; text-align: left; cursor: pointer;
+    transition: border-color var(--transicao), background var(--transicao), color var(--transicao);
+  }
+  .atalhos-item:focus-visible { outline: none; border-color: var(--primaria); box-shadow: 0 0 0 3px var(--primaria-suave); }
+  .atalhos-item[aria-pressed="true"] { border-color: color-mix(in srgb, var(--primaria) 55%, var(--borda)); background: var(--primaria-suave); color: var(--txt); }
+  .atalhos-marca {
+    display: grid; place-items: center; flex: 0 0 auto; width: 24px; height: 24px; border-radius: 999px;
+    background: var(--sup-3); color: var(--txt-fraco); font-size: .74rem; font-weight: 750;
+  }
+  .atalhos-item[aria-pressed="true"] .atalhos-marca { background: var(--primaria); color: var(--primaria-texto); }
+  .atalhos-nome { flex: 1 1 auto; min-width: 0; overflow-wrap: break-word; line-height: 1.25; }
+  .atalhos-check { flex: 0 0 auto; color: var(--primaria-forte); }
+  .atalhos-ordem { display: flex; flex: 0 0 auto; gap: 2px; }
+  .atalhos-ordem .icone-btn { width: 40px; height: 40px; border: 1px solid var(--borda); background: var(--sup-1); color: var(--txt-suave); }
+  .atalhos-ordem .icone-btn:disabled { opacity: .35; cursor: default; background: var(--sup-1); }
+
+  /* Acoes ficam visiveis mesmo com a lista rolando dentro do sheet */
+  .atalhos-acoes {
+    position: sticky; bottom: calc(-14px - env(safe-area-inset-bottom)); z-index: 1;
+    display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px;
+    margin: 0 -12px calc(-14px - env(safe-area-inset-bottom)); padding: 10px 12px calc(14px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--borda); background: var(--sup-1);
+  }
+  .atalhos-acoes > div { display: flex; gap: 8px; margin-left: auto; }
+  .atalhos-acoes .btn { min-height: 42px; }
+}
+
+/* Em 320px o nome do modulo precisa caber inteiro ao lado das setas de ordem */
+@media (max-width: 360px) {
+  .atalhos-item { gap: 8px; padding: 8px; font-size: .84rem; }
+  .atalhos-ordem .icone-btn { width: 36px; height: 40px; }
+  .atalhos-acoes .btn { padding-inline: 10px; font-size: .88rem; }
 }

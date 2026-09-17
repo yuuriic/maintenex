@@ -199,7 +199,7 @@ export default function Estoque() {
       <div className="estoque-grid">
         <Painel titulo="Saldos">
           {carregando || carregandoMateriais ? <Skeleton /> : !lista.length ? <Vazio texto="Nenhum material no escopo" compacto /> : (
-            <div className="tabela-wrap">
+            <div className="tabela-wrap responsiva">
               <table className="tabela">
                 <thead><tr><th>Código</th><th>Material</th><th>Categoria</th><th>Saldo</th><th>Mínimo</th><th>Status</th></tr></thead>
                 <tbody>
@@ -209,12 +209,12 @@ export default function Estoque() {
                     const baixo = !critico && s.quantidade <= minimo
                     return (
                       <tr key={s.id}>
-                        <td><code>{s.materiais?.codigo}</code></td>
-                        <td><b>{s.materiais?.nome}</b></td>
-                        <td>{s.materiais?.categoria ?? '—'}</td>
-                        <td>{nf.format(s.quantidade)} {s.materiais?.unidade}</td>
-                        <td>{nf.format(minimo)}</td>
-                        <td>
+                        <td data-rotulo="Código"><code>{s.materiais?.codigo}</code></td>
+                        <td className="principal"><b>{s.materiais?.nome}</b></td>
+                        <td data-rotulo="Categoria">{s.materiais?.categoria ?? '—'}</td>
+                        <td data-rotulo="Saldo">{nf.format(s.quantidade)} {s.materiais?.unidade}</td>
+                        <td data-rotulo="Mínimo">{nf.format(minimo)}</td>
+                        <td data-rotulo="Status">
                           <Badge tom={critico ? 'vermelho' : baixo ? 'ambar' : 'verde'}>
                             {critico ? 'Zerado' : baixo ? 'Repor' : 'Normal'}
                           </Badge>

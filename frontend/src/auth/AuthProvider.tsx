@@ -178,7 +178,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async atualizarPerfil(dados) {
       if (!session?.user?.id) return
       const { data, error } = await supabase
-        .from('profiles').update(dados).eq('id', session.user.id).select().single()
+        .from('profiles').update(dados).eq('id', session.user.id).select('*, empresas(id, nome, slug, status)').single()
       if (error) throw new Error(error.message)
       setProfile(data as Profile)
     },
